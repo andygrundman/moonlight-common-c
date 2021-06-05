@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Limelight.h"
-#include "Platform.h"
+#include "PlatformStuff.h"
 #ifdef __3DS__
 #include <netinet/in.h>
 

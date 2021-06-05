@@ -1,4 +1,4 @@
-#include "Platform.h"
+#include "PlatformStuff.h"
 #include "Rtsp.h"
 
 // Check if String s begins with the given prefix

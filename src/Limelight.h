@@ -672,9 +672,9 @@ int LiSendPenEvent(uint8_t eventType, uint8_t toolType, uint8_t penButtons,
 // This function queues a mouse button event to be sent to the remote server.
 #define BUTTON_ACTION_PRESS 0x07
 #define BUTTON_ACTION_RELEASE 0x08
-#define BUTTON_LEFT 0x01
-#define BUTTON_MIDDLE 0x02
-#define BUTTON_RIGHT 0x03
+#define BUTTON_MOUSE_LEFT 0x01
+#define BUTTON_MOUSE_MIDDLE 0x02
+#define BUTTON_MOUSE_RIGHT 0x03
 #define BUTTON_X1 0x04
 #define BUTTON_X2 0x05
 int LiSendMouseButtonEvent(char action, int button);

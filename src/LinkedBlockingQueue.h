@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Platform.h"
+#include "PlatformStuff.h"
 #include "PlatformThreads.h"
 
 #define LBQ_SUCCESS 0

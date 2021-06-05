@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Limelight.h"
-#include "Platform.h"
+#include "PlatformStuff.h"
 
 typedef void(*ThreadEntry)(void* context);
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Platform.h"
+#include "PlatformStuff.h"
 
 #define BYTE_ORDER_LITTLE 1
 #define BYTE_ORDER_BIG 2

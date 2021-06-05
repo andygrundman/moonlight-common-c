@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Platform.h"
 #include "Limelight.h"
+#include "PlatformStuff.h"
 #include "PlatformSockets.h"
 #include "PlatformThreads.h"
 #include "PlatformCrypto.h"
