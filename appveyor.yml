@@ -37,6 +37,8 @@ build_script:
   - cmd: 'cmake %CMAKE_ARGS% -DCMAKE_BUILD_TYPE=Debug ..'
   - sh: 'cmake --build .'
   - cmd: 'cmake --build . --config Debug'
+  - sh: 'ctest --output-on-failure --repeat until-pass:1000'
+  - cmd: 'ctest --output-on-failure --repeat until-pass:1000'
   - 'cd ..'
   - 'mkdir build_release'
   - 'cd build_release'

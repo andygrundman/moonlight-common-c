@@ -425,7 +425,7 @@ void connectionSendFrameFecStatus(PSS_FRAME_FEC_STATUS fecStatus) {
 void connectionSawFrame(uint32_t frameIndex) {
     LC_ASSERT_VT(!isBefore16(frameIndex, lastSeenFrame));
 
-    uint64_t now = PltGetMillis();
+    uint64_t now = Plt_GetTicks64_ms();
 
     // Suppress connection status warnings for the first sampling period
     // to allow the network and host to settle.

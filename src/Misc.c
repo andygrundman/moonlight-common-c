@@ -99,7 +99,7 @@ int extractVersionQuadFromString(const char* string, int* quad) {
             nextNumber++;
         }
     }
-    
+
     return 0;
 }
 
@@ -145,7 +145,11 @@ void LiInitializeServerInformation(PSERVER_INFORMATION serverInfo) {
 }
 
 uint64_t LiGetMillis(void) {
-    return PltGetMillis();
+    return Plt_GetTicks64_ms();
+}
+
+uint64_t LiGetMicroseconds(void) {
+    return Plt_GetTicks64_us();
 }
 
 uint32_t LiGetHostFeatureFlags(void) {

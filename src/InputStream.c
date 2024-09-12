@@ -95,7 +95,7 @@ typedef struct _PACKET_HOLDER {
 // Initializes the input stream
 int initializeInputStream(void) {
     memcpy(currentAesIv, StreamConfig.remoteInputAesIv, sizeof(currentAesIv));
-    
+
     // Set a high maximum queue size limit to ensure input isn't dropped
     // while the input send thread is blocked for short periods.
     LbqInitializeLinkedBlockingQueue(&packetQueue, MAX_QUEUED_INPUT_PACKETS);
@@ -129,7 +129,7 @@ int initializeInputStream(void) {
 // Destroys and cleans up the input stream
 void destroyInputStream(void) {
     PLINKED_BLOCKING_QUEUE_ENTRY entry, nextEntry;
-    
+
     PltDestroyCryptoContext(cryptoContext);
 
     entry = LbqDestroyLinkedBlockingQueue(&packetQueue);
@@ -350,7 +350,7 @@ static void inputSendThreadProc(void* context) {
             PPACKET_HOLDER controllerBatchHolder;
             PNV_MULTI_CONTROLLER_PACKET origPkt;
             short controllerNumber = LE16(holder->packet.multiController.controllerNumber);
-            uint64_t now = PltGetMillis();
+            uint64_t now = Plt_GetTicks64_ms();
 
             LC_ASSERT(controllerNumber < MAX_GAMEPADS);
 
@@ -358,7 +358,7 @@ static void inputSendThreadProc(void* context) {
             if (now < lastControllerPacketTime[controllerNumber] + CONTROLLER_BATCHING_INTERVAL_MS) {
                 flushInputOnControlStream();
                 PltSleepMs((int)(lastControllerPacketTime[controllerNumber] + CONTROLLER_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                now = Plt_GetTicks64_ms();
             }
 
             origPkt = &holder->packet.multiController;
@@ -410,13 +410,13 @@ static void inputSendThreadProc(void* context) {
         }
         // If it's a relative mouse move packet, we can also do batching
         else if (holder->packet.header.magic == relMouseMagicLE) {
-            uint64_t now = PltGetMillis();
+            uint64_t now = Plt_GetTicks64_ms();
 
             // Delay for batching if required
             if (now < lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS) {
                 flushInputOnControlStream();
                 PltSleepMs((int)(lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                now = Plt_GetTicks64_ms();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -481,13 +481,13 @@ static void inputSendThreadProc(void* context) {
         }
         // If it's an absolute mouse move packet, we should only send the latest
         else if (holder->packet.header.magic == LE32(MOUSE_MOVE_ABS_MAGIC)) {
-            uint64_t now = PltGetMillis();
+            uint64_t now = Plt_GetTicks64_ms();
 
             // Delay for batching if required
             if (now < lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS) {
                 flushInputOnControlStream();
                 PltSleepMs((int)(lastMousePacketTime + MOUSE_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                now = Plt_GetTicks64_ms();
             }
 
             PltLockMutex(&batchedInputMutex);
@@ -513,13 +513,13 @@ static void inputSendThreadProc(void* context) {
         }
         // If it's a pen packet, we should only send the latest move or hover events
         else if (holder->packet.header.magic == LE32(SS_PEN_MAGIC) && TOUCH_EVENT_IS_BATCHABLE(holder->packet.pen.eventType)) {
-            uint64_t now = PltGetMillis();
+            uint64_t now = Plt_GetTicks64_ms();
 
             // Delay for batching if required
             if (now < lastPenPacketTime + PEN_BATCHING_INTERVAL_MS) {
                 flushInputOnControlStream();
                 PltSleepMs((int)(lastPenPacketTime + PEN_BATCHING_INTERVAL_MS - now));
-                now = PltGetMillis();
+                now = Plt_GetTicks64_ms();
             }
 
             for (;;) {
@@ -740,7 +740,7 @@ int stopInputStream(void) {
     if (inputSock != INVALID_SOCKET) {
         shutdownTcpSocket(inputSock);
     }
-    
+
     if (inputSock != INVALID_SOCKET) {
         closeSocket(inputSock);
         inputSock = INVALID_SOCKET;
