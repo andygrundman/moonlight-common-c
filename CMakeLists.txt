@@ -24,7 +24,7 @@ if (NOT DEFINED BUILD_SHARED_LIBS)
   set(BUILD_SHARED_LIBS_OVERRIDE ON)
 endif()
 
-add_library(moonlight-common-c ${SRC_LIST})
+add_library(moonlight-common-c STATIC ${SRC_LIST})
 
 if (BUILD_SHARED_LIBS_OVERRIDE)
   unset(BUILD_SHARED_LIBS)
