@@ -30,11 +30,13 @@ before_build:
   - 'git submodule update --init --recursive'
   - sh: 'eval "$PREBUILD_CMD"'
 
+# Linux/Mac use CMAKE_BUILD_TYPE
+# Windows builds are multi-config and use --config at build time
 build_script:
   - 'mkdir build_debug'
   - 'cd build_debug'
   - sh: 'cmake $CMAKE_ARGS -DCMAKE_BUILD_TYPE=Debug ..'
-  - cmd: 'cmake %CMAKE_ARGS% -DCMAKE_BUILD_TYPE=Debug ..'
+  - cmd: 'cmake %CMAKE_ARGS% ..'
   - sh: 'cmake --build .'
   - cmd: 'cmake --build . --config Debug'
   - sh: 'ctest --output-on-failure --repeat until-pass:1000'
@@ -43,7 +45,7 @@ build_script:
   - 'mkdir build_release'
   - 'cd build_release'
   - sh: 'cmake $CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release ..'
-  - cmd: 'cmake %CMAKE_ARGS% -DCMAKE_BUILD_TYPE=Release ..'
+  - cmd: 'cmake %CMAKE_ARGS% ..'
   - sh: 'cmake --build .'
   - cmd: 'cmake --build . --config Release'
 
