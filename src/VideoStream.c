@@ -61,6 +61,8 @@ static void VideoPingThreadProc(void* context) {
     memcpy(&saddr, &RemoteAddr, sizeof(saddr));
     SET_PORT(&saddr, VideoPortNumber);
 
+    PltSetThreadPriority(QOS_CLASS_UTILITY);
+
     // We do not check for errors here. Socket errors will be handled
     // on the read-side in ReceiveThreadProc(). This avoids potential
     // issues related to receiving ICMP port unreachable messages due
@@ -91,6 +93,9 @@ static void VideoReceiveThreadProc(void* context) {
     bool useSelect;
     int waitingForVideoMs;
     bool encrypted;
+
+    // High priority for video, but less than audio
+    PltSetThreadPriority(QOS_CLASS_USER_INITIATED);
 
     encrypted = !!(EncryptionFeaturesEnabled & SS_ENC_VIDEO);
     decryptedSize = StreamConfig.packetSize + MAX_RTP_HEADER_SIZE;
@@ -251,6 +256,9 @@ void notifyKeyFrameReceived(void) {
 
 // Decoder thread proc
 static void VideoDecoderThreadProc(void* context) {
+    // High priority for video, but less than audio
+    PltSetThreadPriority(QOS_CLASS_USER_INITIATED);
+
     while (!PltIsThreadInterrupted(&decoderThread)) {
         VIDEO_FRAME_HANDLE frameHandle;
         PDECODE_UNIT decodeUnit;

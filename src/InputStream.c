@@ -326,6 +326,9 @@ static void inputSendThreadProc(void* context) {
     uint32_t multiControllerMagicLE;
     uint32_t relMouseMagicLE;
 
+    // highest priority for input thread
+    PltSetThreadPriority(QOS_CLASS_USER_INTERACTIVE);
+
     if (AppVersionQuad[0] >= 5) {
         multiControllerMagicLE = LE32(MULTI_CONTROLLER_MAGIC_GEN5);
         relMouseMagicLE = LE32(MOUSE_MOVE_REL_MAGIC_GEN5);

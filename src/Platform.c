@@ -314,6 +314,17 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
     return 0;
 }
 
+int PltSetThreadPriority(PLT_THREAD_PRIO prio) {
+#if defined(LC_DARWIN)
+    // Apple Silicon QoS docs:
+    // https://github.com/apple/darwin-libpthread/blob/main/include/sys/qos.h
+    return pthread_set_qos_class_self_np((qos_class_t)prio, 0);
+#else
+    // TODO
+#endif
+    return 0;
+}
+
 int PltCreateEvent(PLT_EVENT* event) {
 #if defined(LC_WINDOWS)
     *event = CreateEvent(NULL, TRUE, FALSE, NULL);

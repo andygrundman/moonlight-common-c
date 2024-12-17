@@ -44,6 +44,8 @@ static void AudioPingThreadProc(void* context) {
     memcpy(&saddr, &RemoteAddr, sizeof(saddr));
     SET_PORT(&saddr, AudioPortNumber);
 
+    PltSetThreadPriority(QOS_CLASS_UTILITY);
+
     // We do not check for errors here. Socket errors will be handled
     // on the read-side in ReceiveThreadProc(). This avoids potential
     // issues related to receiving ICMP port unreachable messages due
@@ -244,6 +246,9 @@ static void AudioReceiveThreadProc(void* context) {
     uint32_t packetsToDrop;
     int waitingForAudioMs;
 
+    // High priority for audio packets
+    PltSetThreadPriority(QOS_CLASS_USER_INITIATED);
+
     packet = NULL;
     packetsToDrop = 500 / AudioPacketDuration;
 
@@ -385,6 +390,9 @@ static void AudioReceiveThreadProc(void* context) {
 static void AudioDecoderThreadProc(void* context) {
     int err;
     PQUEUED_AUDIO_PACKET packet;
+
+    // Highest priority for audio decoder thread
+    PltSetThreadPriority(QOS_CLASS_USER_INTERACTIVE);
 
     while (!PltIsThreadInterrupted(&decoderThread)) {
         err = LbqWaitForQueueElement(&packetQueue, (void**)&packet);
