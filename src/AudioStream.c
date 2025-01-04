@@ -215,7 +215,12 @@ static void decodeInputData(PQUEUED_AUDIO_PACKET packet) {
         }
 #endif
 
-        AudioCallbacks.decodeAndPlaySample((char*)decryptedOpusData, dataLength);
+        if (AudioCallbacks.capabilities & CAPABILITY_USES_RTP_TIMESTAMP) {
+            AudioCallbacks.decodeWithTimestamp((char*)decryptedOpusData, dataLength, rtp->timestamp);
+        }
+        else {
+            AudioCallbacks.decodeAndPlaySample((char*)decryptedOpusData, dataLength);
+        }
     }
     else {
 #ifdef LC_DEBUG
@@ -232,7 +237,12 @@ static void decodeInputData(PQUEUED_AUDIO_PACKET packet) {
         }
 #endif
 
-        AudioCallbacks.decodeAndPlaySample((char*)(rtp + 1), packet->header.size - sizeof(*rtp));
+        if (AudioCallbacks.capabilities & CAPABILITY_USES_RTP_TIMESTAMP) {
+            AudioCallbacks.decodeWithTimestamp((char*)(rtp + 1), packet->header.size - sizeof(*rtp), rtp->timestamp);
+        }
+        else {
+            AudioCallbacks.decodeAndPlaySample((char*)(rtp + 1), packet->header.size - sizeof(*rtp));
+        }
     }
 }
 

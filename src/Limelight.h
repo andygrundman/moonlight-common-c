@@ -69,7 +69,7 @@ typedef struct _STREAM_CONFIGURATION {
     // Specifies the channel configuration of the audio stream.
     // See AUDIO_CONFIGURATION constants and MAKE_AUDIO_CONFIGURATION() below.
     int audioConfiguration;
-    
+
     // Specifies the mask of supported video formats.
     // See VIDEO_FORMAT constants below.
     int supportedVideoFormats;
@@ -272,6 +272,12 @@ typedef struct _DECODE_UNIT {
 // supports reference frame invalidation for AV1 streams. This flag is only valid on video renderers.
 #define CAPABILITY_REFERENCE_FRAME_INVALIDATION_AV1 0x40
 
+// This flag indicates the audio or video renderer is capable of using the RTP timestamp data
+// to synchronize playback of the audio and video streams. When set for audio, a different decode callback
+// will be called that passes the additional timestamp value: AudioRendererDecodeWithTimestamp.
+// There is no effect for video renderers because the timestamp is already available in DECODE_UNIT.
+#define CAPABILITY_USES_RTP_TIMESTAMP 0x80
+
 // If set in the video renderer capabilities field, this macro specifies that the renderer
 // supports slicing to increase decoding performance. The parameter specifies the desired
 // number of slices per frame. This capability is only valid on video renderers.
@@ -349,7 +355,11 @@ typedef void(*AudioRendererStop)(void);
 // This callback performs the final teardown of the audio decoder. No additional audio will be submitted when this callback is invoked.
 typedef void(*AudioRendererCleanup)(void);
 
-// This callback provides Opus audio data to be decoded and played. sampleLength is in bytes.
+// Choose one of the following callbacks for decoding audio:
+// Option 1: Opus audio data, length in bytes, and RTP timestamp. Use this callback if you want to synchronize audio and video playback.
+typedef void(*AudioRendererDecodeWithTimestamp)(char* sampleData, int sampleLength, uint32_t timestamp);
+
+// Option 2: This callback provides only Opus audio data and sampleLength in bytes.
 typedef void(*AudioRendererDecodeAndPlaySample)(char* sampleData, int sampleLength);
 
 typedef struct _AUDIO_RENDERER_CALLBACKS {
@@ -357,6 +367,7 @@ typedef struct _AUDIO_RENDERER_CALLBACKS {
     AudioRendererStart start;
     AudioRendererStop stop;
     AudioRendererCleanup cleanup;
+    AudioRendererDecodeWithTimestamp decodeWithTimestamp;
     AudioRendererDecodeAndPlaySample decodeAndPlaySample;
     int capabilities;
 } AUDIO_RENDERER_CALLBACKS, *PAUDIO_RENDERER_CALLBACKS;
@@ -512,10 +523,10 @@ void LiInitializeConnectionCallbacks(PCONNECTION_LISTENER_CALLBACKS clCallbacks)
 typedef struct _SERVER_INFORMATION {
     // Server host name or IP address in text form
     const char* address;
-    
+
     // Text inside 'appversion' tag in /serverinfo
     const char* serverInfoAppVersion;
-    
+
     // Text inside 'GfeVersion' tag in /serverinfo (if present)
     const char* serverInfoGfeVersion;
 
@@ -875,7 +886,7 @@ int LiGetPendingAudioDuration(void);
 unsigned int LiGetPortFlagsFromStage(int stage);
 unsigned int LiGetPortFlagsFromTerminationErrorCode(int errorCode);
 
-// Returns the IPPROTO_* value for the specified port index 
+// Returns the IPPROTO_* value for the specified port index
 int LiGetProtocolFromPortFlagIndex(int portFlagIndex);
 
 // Returns the port number for the specified port index
