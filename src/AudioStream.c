@@ -164,7 +164,12 @@ static void decodeInputData(PQUEUED_AUDIO_PACKET packet) {
     // packet. Trigger packet loss concealment logic in libopus by
     // invoking the decoder with a NULL buffer.
     if (packet->header.size == 0) {
-        AudioCallbacks.decodeAndPlaySample(NULL, 0);
+        if (AudioCallbacks.capabilities & CAPABILITY_USES_RTP_TIMESTAMP) {
+            AudioCallbacks.decodeWithTimestamp(NULL, 0, 0);
+        }
+        else {
+            AudioCallbacks.decodeAndPlaySample(NULL, 0);
+        }
         return;
     }
 

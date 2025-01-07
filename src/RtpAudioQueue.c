@@ -297,7 +297,7 @@ static PRTPA_FEC_BLOCK getFecBlockForRtpPacket(PRTP_AUDIO_QUEUE queue, PRTP_PACK
         if (existingBlock->fecHeader.baseSequenceNumber == fecBlockBaseSeqNum) {
             // The FEC header data should match for all packets
             LC_ASSERT_VT(existingBlock->fecHeader.payloadType == fecBlockPayloadType);
-            //LC_ASSERT_VT(existingBlock->fecHeader.baseTimestamp == fecBlockBaseTs); // XXX
+            //LC_ASSERT_VT(existingBlock->fecHeader.baseTimestamp == fecBlockBaseTs); // XXX broken by new timestamp code in Sunshine
             LC_ASSERT_VT(existingBlock->fecHeader.ssrc == fecBlockSsrc);
 
             // The block size must match in order to safely copy shards into it
