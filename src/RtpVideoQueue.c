@@ -706,6 +706,9 @@ int RtpvAddPacket(PRTP_VIDEO_QUEUE queue, PRTP_PACKET packet, int length, PRTPV_
         queue->bufferHighestSequenceNumber = U16(queue->bufferFirstParitySequenceNumber + queue->bufferParityPackets - 1);
         queue->multiFecCurrentBlockNumber = fecCurrentBlockNumber;
         queue->multiFecLastBlockNumber = (nvPacket->multiFecBlocks >> 6) & 0x3;
+
+        queue->stats.packetCountVideo += queue->bufferDataPackets;
+        queue->stats.packetCountFec += queue->bufferParityPackets;
     }
 
     // Reject packets above our FEC queue valid sequence number range
