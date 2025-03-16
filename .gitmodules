@@ -3,4 +3,5 @@
 	url = https://github.com/cgutman/enet.git
 [submodule "nanors"]
 	path = nanors
-	url = https://github.com/sleepybishop/nanors.git
+	url = https://github.com/andygrundman/nanors.git
+	branch = andyg.msvc-support
