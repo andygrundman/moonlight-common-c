@@ -127,12 +127,20 @@ void reed_solomon_release(reed_solomon *rs)
 
 int reed_solomon_decode(reed_solomon *rs, u8 **data, u8 *marks, int nr_shards, int bs)
 {
+    int ret = 0;
     if (nr_shards < rs->ts)
         return -1;
 
+    u8 *erasures = malloc(rs->ds * sizeof(u8));
+    u8 *colperm = malloc(rs->ds * sizeof(u8));
+    u8 *rowperm = malloc(rs->ds * sizeof(u8));
+    if (!erasures || !colperm || !rowperm) {
+        ret = -1;
+        goto out;
+    }
+
     u8 *wrk = rs->p + 1 * rs->ps * rs->ds;
-    u8 erasures[rs->ds], colperm[rs->ds];
-    u8 gaps = 0, rowperm[rs->ds];
+    u8 gaps = 0;
 
     for (int i = 0; i < rs->ds; i++)
         if (marks[i])
@@ -154,11 +162,23 @@ int reed_solomon_decode(reed_solomon *rs, u8 **data, u8 *marks, int nr_shards, i
         rowperm[i] = j - rs->ds;
         memcpy(data[erasures[i]], data[j], bs);
     }
-    if (i < gaps)
-        return -1;
+    if (i < gaps) {
+        ret = -1;
+        goto out;
+    }
 
     invert_mat(rs->p, wrk, data, rs->ds - gaps, rs->ds, bs, colperm, rowperm);
-    return 0;
+    ret = 0;
+
+out:
+    if (erasures)
+        free(erasures);
+    if (colperm)
+        free(colperm);
+    if (rowperm)
+        free(rowperm);
+
+    return ret;
 }
 
 int reed_solomon_encode(reed_solomon *rs, u8 **shards, int nr_shards, int bs)
