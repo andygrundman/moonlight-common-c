@@ -156,7 +156,7 @@ reed_solomon_decode_t reed_solomon_decode_fn;
  * @details The streaming code will directly invoke these function pointers during encoding.
  */
 void reed_solomon_init(void) {
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && !defined(_M_ARM64)
   // Visual Studio
   if (_msc_supports_avx512f() && _msc_supports_avx512bw()) {
     reed_solomon_new_fn = reed_solomon_new_avx512;
@@ -178,7 +178,7 @@ void reed_solomon_init(void) {
     reed_solomon_init_ssse3();
   } else
 
-#elif defined(__x86_64__) || defined(__i386__)
+#elif defined(__x86_64__)
   // gcc & clang
   if (__builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw")) {
     reed_solomon_new_fn = reed_solomon_new_avx512;
