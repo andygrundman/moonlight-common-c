@@ -39,7 +39,7 @@
 #define gemm DECORATE_FUNC(gemm, ISA_SUFFIX)
 #define invert_mat DECORATE_FUNC(invert_mat, ISA_SUFFIX)
 
-#if defined(__x86_64__) || defined(__i386__) || defined(_MSC_VER)
+#if defined(__x86_64__) || defined(__i386__) || (defined(_MSC_VER) && !defined(__aarch64__))
 
   // Compile a variant for SSSE3
   #if defined(__clang__)
@@ -118,7 +118,7 @@ reed_solomon_release_t reed_solomon_release_fn;
 reed_solomon_encode_t reed_solomon_encode_fn;
 reed_solomon_decode_t reed_solomon_decode_fn;
 
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && !defined(__aarch64__)
   // https://learn.microsoft.com/en-us/cpp/intrinsics/cpuid-cpuidex?view=msvc-170
 
   // The EBX/ECX registers indicate CPU feature flags using bits.
@@ -156,7 +156,7 @@ reed_solomon_decode_t reed_solomon_decode_fn;
  * @details The streaming code will directly invoke these function pointers during encoding.
  */
 void reed_solomon_init(void) {
-#if defined(_MSC_VER) && !defined(_M_ARM64)
+#if defined(_MSC_VER) && !defined(__aarch64__)
   // Visual Studio
   if (_msc_supports_avx512f() && _msc_supports_avx512bw()) {
     reed_solomon_new_fn = reed_solomon_new_avx512;
