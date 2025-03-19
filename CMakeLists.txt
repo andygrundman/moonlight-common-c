@@ -83,6 +83,7 @@ target_include_directories(moonlight-common-c PRIVATE
 target_compile_definitions(moonlight-common-c PRIVATE HAS_SOCKLEN_T)
 
 # nanors
+target_compile_definitions(moonlight-common-c PRIVATE SSE2NEON_SUPPRESS_WARNINGS)
 set_source_files_properties("${CMAKE_SOURCE_DIR}/src/rswrapper.c"
         DIRECTORY "${CMAKE_SOURCE_DIR}"
         PROPERTIES COMPILE_FLAGS "-ftree-vectorize -funroll-loops")
