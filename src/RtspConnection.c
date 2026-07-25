@@ -454,9 +454,9 @@ static bool transactRtspMessageTcp(PRTSP_MESSAGE request, PRTSP_MESSAGE response
                 Limelog("RTSP response exceeded maximum allowed size\n");
                 goto Exit;
             }
-      
+
             responseBufferSize = offset + 16384;
-      
+
             responseBuffer = extendBuffer(responseBuffer, responseBufferSize);
             if (responseBuffer == NULL) {
                 Limelog("Failed to allocate RTSP response buffer\n");
@@ -495,7 +495,7 @@ static bool transactRtspMessageTcp(PRTSP_MESSAGE request, PRTSP_MESSAGE response
                 Limelog("RTSP response exceeded maximum allowed size\n");
                 goto Exit;
             }
-      
+
             offset += err;
         }
     }
@@ -1087,7 +1087,22 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
             goto Exit;
         }
 
-        if ((StreamConfig.supportedVideoFormats & VIDEO_FORMAT_MASK_AV1) && strstr(response.payload, "AV1/90000")) {
+        if ((StreamConfig.supportedVideoFormats & VIDEO_FORMAT_MASK_PYROWAVE) && (serverInfo->serverCodecModeSupport & SCM_PYROWAVE)) {
+            // PyroWave carries no SDP media line; select it purely on mutual client/server capability.
+            if ((serverInfo->serverCodecModeSupport & SCM_PYROWAVE10_444) && (StreamConfig.supportedVideoFormats & VIDEO_FORMAT_PYROWAVE10_444)) {
+                NegotiatedVideoFormat = VIDEO_FORMAT_PYROWAVE10_444;
+            }
+            else if ((serverInfo->serverCodecModeSupport & SCM_PYROWAVE10_420) && (StreamConfig.supportedVideoFormats & VIDEO_FORMAT_PYROWAVE10_420)) {
+                NegotiatedVideoFormat = VIDEO_FORMAT_PYROWAVE10_420;
+            }
+            else if ((serverInfo->serverCodecModeSupport & SCM_PYROWAVE_444) && (StreamConfig.supportedVideoFormats & VIDEO_FORMAT_PYROWAVE_444)) {
+                NegotiatedVideoFormat = VIDEO_FORMAT_PYROWAVE_444;
+            }
+            else {
+                NegotiatedVideoFormat = VIDEO_FORMAT_PYROWAVE;
+            }
+        }
+        else if ((StreamConfig.supportedVideoFormats & VIDEO_FORMAT_MASK_AV1) && strstr(response.payload, "AV1/90000")) {
             if ((serverInfo->serverCodecModeSupport & SCM_AV1_HIGH10_444) && (StreamConfig.supportedVideoFormats & VIDEO_FORMAT_AV1_HIGH10_444)) {
                 NegotiatedVideoFormat = VIDEO_FORMAT_AV1_HIGH10_444;
             }
@@ -1230,14 +1245,14 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
             ret = -1;
             goto Exit;
         }
-      
+
         sessionIdString = strdup(sessionToken);
         if (sessionIdString == NULL) {
             Limelog("Failed to duplicate session ID string\n");
             ret = -1;
             goto Exit;
         }
-      
+
 
         hasSessionId = true;
 
