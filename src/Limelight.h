@@ -232,13 +232,18 @@ typedef struct _DECODE_UNIT {
 #define VIDEO_FORMAT_AV1_MAIN10      0x2000 // AV1 Main 10-bit profile
 #define VIDEO_FORMAT_AV1_HIGH8_444   0x4000 // AV1 High 4:4:4 8-bit profile
 #define VIDEO_FORMAT_AV1_HIGH10_444  0x8000 // AV1 High 4:4:4 10-bit profile
+#define VIDEO_FORMAT_PYROWAVE        0x0010 // PyroWave 4:2:0 8-bit
+#define VIDEO_FORMAT_PYROWAVE_444    0x0020 // PyroWave 4:4:4 8-bit
+#define VIDEO_FORMAT_PYROWAVE10_420  0x0040 // PyroWave 4:2:0 10-bit
+#define VIDEO_FORMAT_PYROWAVE10_444  0x0080 // PyroWave 4:4:4 10-bit
 
 // Masks for clients to use to match video codecs without profile-specific details.
-#define VIDEO_FORMAT_MASK_H264   0x000F
-#define VIDEO_FORMAT_MASK_H265   0x0F00
-#define VIDEO_FORMAT_MASK_AV1    0xF000
-#define VIDEO_FORMAT_MASK_10BIT  0xAA00
-#define VIDEO_FORMAT_MASK_YUV444 0xCC04
+#define VIDEO_FORMAT_MASK_H264     0x000F
+#define VIDEO_FORMAT_MASK_H265     0x0F00
+#define VIDEO_FORMAT_MASK_AV1      0xF000
+#define VIDEO_FORMAT_MASK_PYROWAVE 0x00F0
+#define VIDEO_FORMAT_MASK_10BIT    0xAAC0
+#define VIDEO_FORMAT_MASK_YUV444   0xCCA4
 
 // If set in the renderer capabilities field, this flag will cause audio/video data to
 // be submitted directly from the receive thread. This should only be specified if the
@@ -517,13 +522,17 @@ void LiInitializeConnectionCallbacks(PCONNECTION_LISTENER_CALLBACKS clCallbacks)
 #define SCM_HEVC_REXT10_444 0x00100000 // Sunshine extension
 #define SCM_AV1_HIGH8_444   0x00200000 // Sunshine extension
 #define SCM_AV1_HIGH10_444  0x00400000 // Sunshine extension
+#define SCM_PYROWAVE        0x00800000 // PyroWave
+#define SCM_PYROWAVE_444    0x01000000 // PyroWave 4:4:4
+#define SCM_PYROWAVE10_420  0x02000000 // PyroWave 4:2:0 10-bit
+#define SCM_PYROWAVE10_444  0x04000000 // PyroWave 4:4:4 10-bit
 
 // SCM masks to identify various codec capabilities
 #define SCM_MASK_H264   (SCM_H264 | SCM_H264_HIGH8_444)
 #define SCM_MASK_HEVC   (SCM_HEVC | SCM_HEVC_MAIN10 | SCM_HEVC_REXT8_444 | SCM_HEVC_REXT10_444)
 #define SCM_MASK_AV1    (SCM_AV1_MAIN8 | SCM_AV1_MAIN10 | SCM_AV1_HIGH8_444 | SCM_AV1_HIGH10_444)
-#define SCM_MASK_10BIT  (SCM_HEVC_MAIN10 | SCM_HEVC_REXT10_444 | SCM_AV1_MAIN10 | SCM_AV1_HIGH10_444)
-#define SCM_MASK_YUV444 (SCM_H264_HIGH8_444 | SCM_HEVC_REXT8_444 | SCM_HEVC_REXT10_444 | SCM_AV1_HIGH8_444 | SCM_AV1_HIGH10_444)
+#define SCM_MASK_10BIT  (SCM_HEVC_MAIN10 | SCM_HEVC_REXT10_444 | SCM_AV1_MAIN10 | SCM_AV1_HIGH10_444 | SCM_PYROWAVE10_420 | SCM_PYROWAVE10_444)
+#define SCM_MASK_YUV444 (SCM_H264_HIGH8_444 | SCM_HEVC_REXT8_444 | SCM_HEVC_REXT10_444 | SCM_AV1_HIGH8_444 | SCM_AV1_HIGH10_444 | SCM_PYROWAVE_444 | SCM_PYROWAVE10_444)
 
 typedef struct _SERVER_INFORMATION {
     // Server host name or IP address in text form
