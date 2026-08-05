@@ -191,6 +191,15 @@ typedef struct _DECODE_UNIT {
     // Note: This is not currently parsed from the actual bitstream, so if your
     // client has access to a bitstream parser, prefer that over this field.
     uint8_t colorspace;
+
+    // Set when the frame could not be fully reassembled and this decode unit
+    // carries only the contiguous prefix that was received. Every byte in the
+    // buffer chain is valid, but the frame is truncated at an arbitrary point.
+    //
+    // Only ever set for codecs that can decode an incomplete frame into a
+    // degraded picture (VIDEO_FORMAT_MASK_PYROWAVE, where missing wavelet
+    // blocks decode as zero). Decoders for other formats will never see this.
+    bool isPartial;
 } DECODE_UNIT, *PDECODE_UNIT;
 
 // Specifies that the audio stream should be encoded in stereo (default)

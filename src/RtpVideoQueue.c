@@ -23,6 +23,11 @@ void RtpvInitializeQueue(PRTP_VIDEO_QUEUE queue) {
 
     queue->currentFrameNumber = 1;
     queue->multiFecCapable = APP_VERSION_AT_LEAST(7, 1, 431);
+
+    // PyroWave is intra-only and decodes missing wavelet blocks as zero, so an
+    // incompletely reassembled frame is still worth showing. Every other codec
+    // we support needs the whole frame.
+    queue->partialDeliveryEnabled = (NegotiatedVideoFormat & VIDEO_FORMAT_MASK_PYROWAVE) != 0;
 }
 
 static void purgeListEntries(PRTPV_QUEUE_LIST list) {
@@ -212,7 +217,11 @@ static int reconstructFrame(PRTP_VIDEO_QUEUE queue) {
         // based on the packets we've received (or not) so far. If the number of missing shards exceeds the total
         // needed shards, there is no hope of recovering the data. The only way we could recover this frame is by
         // receiving OOS data, which is unlikely because we've not seen any recently from this host.
-        if (!queue->reportedLostFrame && !queue->receivedOosData) {
+        // When partial delivery is on we won't lose this frame, we'll deliver a
+        // truncated version of it, so predicting loss here would be wrong (and
+        // notifyFrameLost() can advance nextFrameNumber past the frame we're
+        // about to submit).
+        if (!queue->reportedLostFrame && !queue->receivedOosData && !queue->partialDeliveryEnabled) {
             // NB: We use totalPackets - neededPackets instead of just bufferParityPackets here because we require
             // one extra parity shard for recovery if we're in FEC validation mode.
             if (queue->missingPackets > totalPackets - neededPackets) {
@@ -537,6 +546,77 @@ static void submitCompletedFrame(PRTP_VIDEO_QUEUE queue) {
     }
 }
 
+// Salvage a frame we're about to give up reassembling by delivering the
+// contiguous run of data packets from the start of the frame up to the first
+// hole. We must stop at the hole rather than skipping it: the host frames the
+// decode unit as a chain of length-prefixed chunks, so a gap makes everything
+// after it unparseable even though those packets arrived intact.
+//
+// Any earlier FEC blocks of this frame that did complete are already staged in
+// completedFecBlockList and get delivered ahead of the prefix for free.
+//
+// Returns true if anything was delivered to the depacketizer.
+static bool deliverPartialFrame(PRTP_VIDEO_QUEUE queue) {
+    unsigned int nextSeqNum = queue->bufferLowestSequenceNumber;
+
+    if (!queue->partialDeliveryEnabled) {
+        return false;
+    }
+
+    for (;;) {
+        PRTPV_QUEUE_ENTRY entry;
+
+        // Everything at or above the first parity sequence number is parity,
+        // so reaching it means we have the whole block (and shouldn't be here).
+        if (!isBefore16(nextSeqNum, queue->bufferFirstParitySequenceNumber)) {
+            break;
+        }
+
+        // O(1) for the common in-order case, since the match is at the head
+        for (entry = queue->pendingFecBlockList.head; entry != NULL; entry = entry->next) {
+            if (entry->packet->sequenceNumber == nextSeqNum) {
+                break;
+            }
+        }
+
+        // Found the hole
+        if (entry == NULL) {
+            break;
+        }
+
+        LC_ASSERT(!entry->isParity);
+
+        removeEntryFromList(&queue->pendingFecBlockList, entry);
+
+        // Same approximation stageCompleteFecBlock() makes
+        LC_ASSERT(queue->bufferFirstRecvTimeUs != 0);
+        entry->receiveTimeUs = queue->bufferFirstRecvTimeUs;
+
+        insertEntryIntoList(&queue->completedFecBlockList, entry);
+        nextSeqNum = U16(nextSeqNum + 1);
+    }
+
+    if (queue->completedFecBlockList.count == 0) {
+        return false;
+    }
+
+    Limelog("Delivering partial frame %d: %d of %d data packets\n",
+            queue->currentFrameNumber, queue->completedFecBlockList.count,
+            queue->bufferDataPackets);
+
+    submitCompletedFrame(queue);
+    finalizePartialFrame(queue->currentFrameNumber);
+
+    // Suppress the frame-loss notifications for a frame we salvaged. Requesting
+    // an IDR or RFI frame is meaningless for an intra-only codec, and telling
+    // the depacketizer the frame was lost would make it discard the data we
+    // just handed it. reportFinalFrameFecStatus() still gives the host the full
+    // picture of what arrived.
+    queue->reportedLostFrame = true;
+
+    return true;
+}
+
 uint32_t RtpvGetCurrentFrameNumber(PRTP_VIDEO_QUEUE queue) {
     return queue->currentFrameNumber;
 }
@@ -593,6 +673,20 @@ int RtpvAddPacket(PRTP_VIDEO_QUEUE queue, PRTP_PACKET packet, int length, PRTPV_
     // if we can't finish a frame before receiving the next one.
     if (queue->pendingFecBlockList.count == 0 || queue->currentFrameNumber != nvPacket->frameIndex ||
             queue->multiFecCurrentBlockNumber != fecCurrentBlockNumber) {
+        // Before any of the purge paths below throw this frame away, salvage
+        // the part of it we can still parse. It must run ahead of the
+        // notifyFrameLost() calls below, which it suppresses via
+        // reportedLostFrame when it delivers something.
+        //
+        // Simply advancing to the next FEC block of the frame we're already
+        // assembling lands here too (with an emptied pending list), and that's
+        // not a loss - the completed blocks are waiting for the rest of the
+        // frame, not stranded.
+        if (queue->currentFrameNumber != nvPacket->frameIndex ||
+                queue->multiFecCurrentBlockNumber != fecCurrentBlockNumber) {
+            deliverPartialFrame(queue);
+        }
+
         if (queue->pendingFecBlockList.count != 0) {
             // Report the final status of the FEC queue before dropping this frame
             reportFinalFrameFecStatus(queue);

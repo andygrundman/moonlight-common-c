@@ -15,6 +15,7 @@ static bool waitingForRefInvalFrame;
 static unsigned int lastPacketInStream;
 static bool decodingFrame;
 static int frameType;
+static bool frameIsPartial;
 static uint16_t lastPacketPayloadLength;
 static bool strictIdrFrameWait;
 static uint64_t syntheticPtsBaseUs;
@@ -69,6 +70,7 @@ void initializeVideoDepacketizer(int pktSize) {
     waitingForRefInvalFrame = false;
     lastPacketInStream = UINT32_MAX;
     decodingFrame = false;
+    frameIsPartial = false;
     syntheticPtsBaseUs = 0;
     frameHostProcessingLatency = 0;
     firstPacketReceiveTimeUs = 0;
@@ -489,6 +491,7 @@ static void reassembleFrame(int frameNumber, bool frameIsLTR) {
             qdu->decodeUnit.presentationTimeUs = firstPacketPresentationTime;
             qdu->decodeUnit.rtpTimestamp = firstPacketRtpTimestamp;
             qdu->decodeUnit.enqueueTimeUs = PltGetMicroseconds();
+            qdu->decodeUnit.isPartial = frameIsPartial;
 
             // These might be wrong for a few frames during a transition between SDR and HDR,
             // but the effects shouldn't very noticable since that's an infrequent operation.
@@ -831,6 +834,7 @@ static void processRtpPayload(PNV_VIDEO_PACKET videoPacket, int length,
         // We're now decoding a frame
         decodingFrame = true;
         frameType = FRAME_TYPE_PFRAME;
+        frameIsPartial = false;
         firstPacketReceiveTimeUs = receiveTimeUs;
 
         // Some versions of Sunshine don't send a valid PTS, so we will
@@ -1129,6 +1133,49 @@ static void processRtpPayload(PNV_VIDEO_PACKET videoPacket, int length,
 
         reassembleFrame(frameIndex, extraFlags & NV_VIDEO_PACKET_EXTRA_FLAG_LTR_FRAME);
     }
+}
+
+// Called by the video RTP queue after it has submitted the contiguous prefix
+// of a frame that could not be fully reassembled. Completes the frame as if
+// we'd seen FLAG_EOF, minus the fixups that require the real final packet.
+//
+// This is only ever reached for codecs that can decode a truncated frame
+// (see RTP_VIDEO_QUEUE::partialDeliveryEnabled).
+void finalizePartialFrame(unsigned int frameIndex) {
+    // Clearing the recovery waits below is only sound for a codec where every
+    // frame stands alone. Nothing else may reach this path.
+    LC_ASSERT(NegotiatedVideoFormat & VIDEO_FORMAT_MASK_PYROWAVE);
+
+    if (!decodingFrame || nalChainHead == NULL) {
+        // The prefix didn't start at the beginning of the frame (or the
+        // packets in it were all rejected), so there's nothing coherent to
+        // hand the decoder.
+        cleanupFrameState();
+        return;
+    }
+
+    decodingFrame = false;
+    nextFrameNumber = frameIndex + 1;
+
+    // Deliberately no lastPacketPayloadLength truncation here. That fixup
+    // exists to strip the zero padding the host adds to the final FEC shard,
+    // and a prefix that stopped at a hole never reaches that packet.
+
+    // A truncated PyroWave frame is still a self-contained intra picture, just
+    // a degraded one, so it satisfies any pending recovery wait instead of
+    // being discarded by it. Dropping it would be strictly worse: we'd throw
+    // away a usable picture and still be waiting.
+    waitingForIdrFrame = false;
+    waitingForRefInvalFrame = false;
+    waitingForNextSuccessfulFrame = false;
+    dropStatePending = false;
+
+    frameIsPartial = true;
+    reassembleFrame(frameIndex, false);
+    frameIsPartial = false;
+
+    // reassembleFrame() consumes the chain on success; drop it if it couldn't
+    cleanupFrameState();
 }
 
 // Called by the video RTP FEC queue to notify us of a lost frame
