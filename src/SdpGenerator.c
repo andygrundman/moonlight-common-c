@@ -526,8 +526,9 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             }
         }
 
-        if (VideoCallbacks.capabilities & CAPABILITY_INTRA_REFRESH) {
-            // Xbox console UWP audio is stuck with 10ms frame size
+        if (VideoCallbacks.capabilities & CAPABILITY_INTRA_REFRESH && audioChannelCount == 2) {
+            // Xbox console UWP audio is stuck with 10ms frame size.
+            // Surround packets will exceed the 1400 byte limit and are best left at 5ms.
             AudioPacketDuration = 10;
         }
 
