@@ -386,7 +386,6 @@ SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCK
             }
         }
 
-#if defined(LC_DEBUG)
         if (err == 0) {
             Limelog("Selected receive buffer size: %d\n", bufferSize);
         }
@@ -400,7 +399,6 @@ SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCK
                 Limelog("Actual receive buffer size: %d\n", bufferSize);
             }
         }
-#endif
     }
 
     return s;
