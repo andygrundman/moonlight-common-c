@@ -1,5 +1,7 @@
 #pragma once
 
+#define NV_VIDEO_PACKET_EXTRA_FLAG_PYROWAVE_RECORD_START 0x80
+
 #include "LinkedBlockingQueue.h"
 
 typedef struct _QUEUED_DECODE_UNIT {

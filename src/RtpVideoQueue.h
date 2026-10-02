@@ -11,6 +11,7 @@ typedef struct _RTPV_QUEUE_ENTRY {
     uint32_t rtpTimestamp;
     int length;
     bool isParity;
+    bool isLost;
 } RTPV_QUEUE_ENTRY, *PRTPV_QUEUE_ENTRY;
 
 typedef struct _RTPV_QUEUE_LIST {

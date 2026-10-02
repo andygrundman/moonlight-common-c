@@ -112,6 +112,8 @@ void LiInitializeStreamConfiguration(PSTREAM_CONFIGURATION streamConfig);
 #define BUFFER_TYPE_SPS      0x01
 #define BUFFER_TYPE_PPS      0x02
 #define BUFFER_TYPE_VPS      0x03
+#define BUFFER_TYPE_LOST     0x04 // Zero-filled missing PyroWave packet
+#define BUFFER_TYPE_RECORD_START 0x05 // PyroWave packet starts at a record boundary
 
 typedef struct _LENTRY {
     // Pointer to the next entry or NULL if this is the last entry
@@ -123,7 +125,7 @@ typedef struct _LENTRY {
     // Size of data in bytes (never <= 0)
     int length;
 
-    // Buffer type (listed above, only set for H.264 and HEVC formats)
+    // Buffer type (listed above, including PyroWave loss/record-boundary markers)
     int bufferType;
 } LENTRY, *PLENTRY;
 
@@ -191,6 +193,10 @@ typedef struct _DECODE_UNIT {
     // Note: This is not currently parsed from the actual bitstream, so if your
     // client has access to a bitstream parser, prefer that over this field.
     uint8_t colorspace;
+
+    // Number of leading PyroWave packets required for the coarsest wavelet level,
+    // or zero when the host did not announce a critical prefix.
+    uint16_t pyrowaveCriticalPackets;
 } DECODE_UNIT, *PDECODE_UNIT;
 
 // Specifies that the audio stream should be encoded in stereo (default)

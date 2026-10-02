@@ -1,5 +1,6 @@
 #include "Limelight-internal.h"
 #include "Rtsp.h"
+#include "PyroWaveProtocol.h"
 
 #define RTSP_CONNECT_TIMEOUT_SEC 10
 #define RTSP_RECEIVE_TIMEOUT_SEC 15
@@ -1088,6 +1089,23 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
         }
 
         if ((StreamConfig.supportedVideoFormats & VIDEO_FORMAT_MASK_PYROWAVE) && (serverInfo->serverCodecModeSupport & SCM_PYROWAVE)) {
+            char hostBitstreamId[9];
+            switch (checkPyroWaveBitstreamId(response.payload, hostBitstreamId)) {
+            case PYROWAVE_BITSTREAM_ID_MISMATCH:
+                Limelog("Warning: PyroWave bitstream mismatch: host %s, client %s. Decoding may fail.\n",
+                        hostBitstreamId, PYROWAVE_BITSTREAM_ID);
+                break;
+            case PYROWAVE_BITSTREAM_ID_INVALID:
+                Limelog("Warning: Host advertised an invalid PyroWave bitstream ID. Compatibility cannot be verified.\n");
+                break;
+            case PYROWAVE_BITSTREAM_ID_MATCH:
+                Limelog("PyroWave bitstream ID: %s\n", hostBitstreamId);
+                break;
+            case PYROWAVE_BITSTREAM_ID_MISSING:
+                // Older PyroWave hosts do not advertise an ID.
+                Limelog("PyroWave host did not advertise a bitstream ID; compatibility is unknown.\n");
+                break;
+            }
             // PyroWave carries no SDP media line; select it purely on mutual client/server capability.
             if ((serverInfo->serverCodecModeSupport & SCM_PYROWAVE10_444) && (StreamConfig.supportedVideoFormats & VIDEO_FORMAT_PYROWAVE10_444)) {
                 NegotiatedVideoFormat = VIDEO_FORMAT_PYROWAVE10_444;
