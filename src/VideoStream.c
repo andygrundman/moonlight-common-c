@@ -1,5 +1,7 @@
 #include "Limelight-internal.h"
 
+#include <stdatomic.h>
+
 #define FIRST_FRAME_MAX 1500
 #define FIRST_FRAME_TIMEOUT_SEC 10
 
@@ -33,6 +35,9 @@ static bool receivedFullFrame;
 // can smooth over transient pauses in network traffic
 // and subsequent packet/frame bursts that follow.
 #define RTP_RECV_PACKETS_BUFFERED 2048
+
+// Enable verbose per-packet logging
+//#define PACKET_DEBUG_VERBOSE
 
 // Initialize the video stream
 void initializeVideoStream(void) {
@@ -122,6 +127,7 @@ static void VideoReceiveThreadProc(void* context) {
     }
 
     waitingForVideoMs = 0;
+    uint64_t pktRecvUs = 0;
     while (!PltIsThreadInterrupted(&receiveThread)) {
         PRTP_PACKET packet;
 
@@ -158,6 +164,10 @@ static void VideoReceiveThreadProc(void* context) {
             // Receive timed out; try again
             continue;
         }
+
+#ifdef PACKET_DEBUG_VERBOSE
+        pktRecvUs = LiGetMicroseconds();
+#endif
 
         if (!receivedDataFromPeer) {
             receivedDataFromPeer = true;
@@ -207,6 +217,7 @@ static void VideoReceiveThreadProc(void* context) {
             // traffic away (as mentioned in the paragraph above) and continue accepting
             // legitmate video traffic.
             if (encHeader->frameNumber && LE32(encHeader->frameNumber) < RtpvGetCurrentFrameNumber(&rtpQueue)) {
+                Limelog("Skipping encrypted video packet from old frame %d\n", encHeader->frameNumber);
                 continue;
             }
 
@@ -226,6 +237,45 @@ static void VideoReceiveThreadProc(void* context) {
         packet->sequenceNumber = BE16(packet->sequenceNumber);
         packet->timestamp = BE32(packet->timestamp);
         packet->ssrc = BE32(packet->ssrc);
+
+#ifdef PACKET_DEBUG_VERBOSE
+        {
+            // helpers for verbose packet logging
+            int anchorUs = 0;
+            if (packet->sequenceNumber == 1) anchorUs = pktRecvUs;
+
+            int dataOffset = sizeof(*packet);
+            if (packet->header & FLAG_EXTENSION) {
+                dataOffset += 4; // 2 additional fields
+            }
+            PNV_VIDEO_PACKET nvPacket = (PNV_VIDEO_PACKET)(((char*)packet) + dataOffset);
+
+            int fecIndex = (nvPacket->fecInfo & 0x3FF000) >> 12;
+            int bufferDataPackets = (nvPacket->fecInfo & 0xFFC00000) >> 22;
+            bool validFlags = fecIndex < bufferDataPackets;
+
+            Limelog("[%.3fms] frameIndex=%d seq=%u flags=%3u extraFlags=%3u fecPct=%2u fecIndex=%3u fecCurBlock=%u bufferDataPackets=%3u %s%s%s%s\n",
+                (double)(pktRecvUs - anchorUs) / 1000.0,
+                nvPacket->frameIndex,
+                packet->sequenceNumber,
+                nvPacket->flags,
+                nvPacket->extraFlags,
+                (nvPacket->fecInfo & 0xFF0) >> 4,
+                (nvPacket->fecInfo & 0x3FF000) >> 12,
+                (nvPacket->multiFecBlocks >> 4) & 0x3,
+                (nvPacket->fecInfo & 0xFFC00000) >> 22,
+                //nvPacket->flags & FLAG_CONTAINS_PIC_DATA ? "PIC " : "", // every packet has this
+                validFlags && nvPacket->flags & FLAG_SOF ? "SOF " : "",
+                validFlags && nvPacket->flags & FLAG_EOF ? "EOF " : "",
+                validFlags && nvPacket->extraFlags & NV_VIDEO_PACKET_EXTRA_FLAG_PYROWAVE_RECORD_START ? "PW_RECORD_START " : "",
+                validFlags && nvPacket->extraFlags & NV_VIDEO_PACKET_EXTRA_FLAG_LTR_FRAME ? "LTR_FRAME " : ""
+            );
+
+        }
+#endif
+
+        // Packet stats
+        atomic_fetch_add(&rtpQueue.packetCountVideoReceived, 1);
 
         queueStatus = RtpvAddPacket(&rtpQueue, packet, err, (PRTPV_QUEUE_ENTRY)&buffer[decryptedSize]);
 
@@ -416,4 +466,8 @@ int startVideoStream(void* rendererContext, int drFlags) {
 
 const RTP_VIDEO_STATS* LiGetRTPVideoStats(void) {
     return &rtpQueue.stats;
+}
+
+bool LiGetRTPVideoStatsSnapshot(PRTP_VIDEO_STATS stats) {
+    return RtpvGetStatsSnapshot(&rtpQueue, stats);
 }

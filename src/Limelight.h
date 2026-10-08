@@ -917,16 +917,20 @@ const RTP_AUDIO_STATS* LiGetRTPAudioStats(void);
 // Right now this is mainly used to track total video and FEC packets, as there are
 // many video stats already implemented at a higher level in moonlight-qt.
 typedef struct _RTP_VIDEO_STATS {
-    uint32_t packetCountVideo;         // total video packets
-    uint32_t packetCountFec;           // total packets of type FEC
-    uint32_t packetCountFecRecovered;  // a packet was saved
-    uint32_t packetCountFecFailed;     // tried to recover but too much was lost
-    uint32_t packetCountOOS;           // out-of-sequence packets
+    uint64_t packetCountVideoExpected; // expected total video packets (including FEC packets)
+    uint32_t packetCountFecRecovered;  // data packets reconstructed by FEC
+    uint32_t packetCountFecFailed;     // missing data packets remaining after FEC
     uint32_t packetCountInvalid;       // corrupted packets, etc
     uint32_t packetCountFecInvalid;    // invalid FEC packet
+    uint64_t packetCountVideoReceived; // total video packets actually received (including FEC)
+    uint64_t packetCountLostVideo;     // total packets never received
 } RTP_VIDEO_STATS, *PRTP_VIDEO_STATS;
 
 const RTP_VIDEO_STATS* LiGetRTPVideoStats(void);
+
+// Copies a consistent snapshot into the provided stats pointer.
+// Returns false if packet statistics are unavailable.
+bool LiGetRTPVideoStatsSnapshot(PRTP_VIDEO_STATS stats);
 
 // Port index flags for use with LiGetPortFromPortFlagIndex() and LiGetProtocolFromPortFlagIndex()
 #define ML_PORT_INDEX_TCP_47984 0
