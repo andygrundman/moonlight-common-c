@@ -365,7 +365,7 @@ static void freeBasicLbqList(PLINKED_BLOCKING_QUEUE_ENTRY entry) {
 
     while (entry != NULL) {
         nextEntry = entry->flink;
-        free(entry->data);
+        PltFree(entry->data);
         entry = nextEntry;
     }
 }
@@ -388,7 +388,7 @@ static void queueFrameInvalidationTuple(uint32_t startFrame, uint32_t endFrame) 
 
     if (isReferenceFrameInvalidationEnabled()) {
         PQUEUED_REFERENCE_FRAME_CONTROL qfit;
-        qfit = malloc(sizeof(*qfit));
+        qfit = PltMalloc(sizeof(*qfit));
         if (qfit != NULL) {
             *qfit = (QUEUED_REFERENCE_FRAME_CONTROL){
                 .startFrame = startFrame,
@@ -398,7 +398,7 @@ static void queueFrameInvalidationTuple(uint32_t startFrame, uint32_t endFrame) 
             if (LbqOfferQueueItem(&referenceFrameControlQueue, qfit, &qfit->entry) == LBQ_BOUND_EXCEEDED) {
                 // Too many invalidation tuples, so we need an IDR frame now
                 Limelog("RFI range list reached maximum size limit\n");
-                free(qfit);
+                PltFree(qfit);
                 LiRequestIdrFrame();
             }
         }
@@ -435,7 +435,7 @@ void connectionReceivedCompleteFrame(uint32_t frameIndex, bool frameIsLTR) {
     if (frameIsLTR && IS_SUNSHINE() && isReferenceFrameInvalidationEnabled()) {
         // Queue LTR frame ACK control message
         PQUEUED_REFERENCE_FRAME_CONTROL qfit;
-        qfit = malloc(sizeof(*qfit));
+        qfit = PltMalloc(sizeof(*qfit));
         if (qfit != NULL) {
             *qfit = (QUEUED_REFERENCE_FRAME_CONTROL){
                 .startFrame = frameIndex,
@@ -445,7 +445,7 @@ void connectionReceivedCompleteFrame(uint32_t frameIndex, bool frameIsLTR) {
                 // This shouldn't happen and indicates that something has gone wrong with the queue
                 LC_ASSERT(false);
                 Limelog("Couldn't queue LTR ACK because the list has reached maximum size limit\n");
-                free(qfit);
+                PltFree(qfit);
                 LiRequestIdrFrame();
             }
         }
@@ -459,11 +459,11 @@ void connectionSendFrameFecStatus(PSS_FRAME_FEC_STATUS fecStatus) {
     }
 
     // Queue a frame FEC status message. This is best-effort only.
-    PQUEUED_FRAME_FEC_STATUS queuedFecStatus = malloc(sizeof(*queuedFecStatus));
+    PQUEUED_FRAME_FEC_STATUS queuedFecStatus = PltMalloc(sizeof(*queuedFecStatus));
     if (queuedFecStatus != NULL) {
         queuedFecStatus->fecStatus = *fecStatus;
         if (LbqOfferQueueItem(&frameFecStatusQueue, queuedFecStatus, &queuedFecStatus->entry) == LBQ_BOUND_EXCEEDED) {
-            free(queuedFecStatus);
+            PltFree(queuedFecStatus);
         }
     }
 }
@@ -528,7 +528,7 @@ static PNVCTL_TCP_PACKET_HEADER readNvctlPacketTcp(void) {
     staticHeader.type = LE16(staticHeader.type);
     staticHeader.payloadLength = LE16(staticHeader.payloadLength);
 
-    fullPacket = (PNVCTL_TCP_PACKET_HEADER)malloc(staticHeader.payloadLength + sizeof(staticHeader));
+    fullPacket = (PNVCTL_TCP_PACKET_HEADER)PltMalloc(staticHeader.payloadLength + sizeof(staticHeader));
     if (fullPacket == NULL) {
         return NULL;
     }
@@ -537,7 +537,7 @@ static PNVCTL_TCP_PACKET_HEADER readNvctlPacketTcp(void) {
     if (staticHeader.payloadLength != 0) {
         err = recv(ctlSock, (char*)(fullPacket + 1), staticHeader.payloadLength, 0);
         if (err != staticHeader.payloadLength) {
-            free(fullPacket);
+            PltFree(fullPacket);
             return NULL;
         }
     }
@@ -637,7 +637,7 @@ static bool decryptControlMessageToV1(PNVCTL_ENCRYPTED_PACKET_HEADER encPacket, 
     }
 
     int plaintextLength = encPacket->length - sizeof(encPacket->seq) - AES_GCM_TAG_LENGTH;
-    *packet = malloc(plaintextLength);
+    *packet = PltMalloc(plaintextLength);
     if (*packet == NULL) {
         return false;
     }
@@ -650,7 +650,7 @@ static bool decryptControlMessageToV1(PNVCTL_ENCRYPTED_PACKET_HEADER encPacket, 
                            (unsigned char*)(encPacket + 1), AES_GCM_TAG_LENGTH, // The tag is located right after the header
                            ((unsigned char*)(encPacket + 1)) + AES_GCM_TAG_LENGTH, plaintextLength, // The ciphertext is after the tag
                            (unsigned char*)*packet, &plaintextLength)) {
-        free(*packet);
+        PltFree(*packet);
         return false;
     }
 
@@ -824,7 +824,7 @@ static bool sendMessageTcp(short ptype, short paylen, const void* payload) {
 
     LC_ASSERT(AppVersionQuad[0] < 5);
 
-    packet = malloc(sizeof(*packet) + paylen);
+    packet = PltMalloc(sizeof(*packet) + paylen);
     if (packet == NULL) {
         return false;
     }
@@ -834,7 +834,7 @@ static bool sendMessageTcp(short ptype, short paylen, const void* payload) {
     memcpy(&packet[1], payload, paylen);
 
     err = send(ctlSock, (char*) packet, sizeof(*packet) + paylen, 0);
-    free(packet);
+    PltFree(packet);
 
     if (err != (SOCK_RET)(sizeof(*packet) + paylen)) {
         return false;
@@ -877,7 +877,7 @@ static bool sendMessageAndDiscardReply(short ptype, short paylen, const void* pa
             return false;
         }
 
-        free(reply);
+        PltFree(reply);
     }
 
     return true;
@@ -924,7 +924,7 @@ static void asyncCallbackThreadFunc(void* context) {
                 }
 
                 // Replace the old entry with the new one
-                free(queuedCb);
+                PltFree(queuedCb);
                 queuedCb = nextCb;
             }
 
@@ -947,7 +947,7 @@ static void asyncCallbackThreadFunc(void* context) {
                 }
 
                 // Replace the old entry with the new one
-                free(queuedCb);
+                PltFree(queuedCb);
                 queuedCb = nextCb;
             }
 
@@ -970,7 +970,7 @@ static void asyncCallbackThreadFunc(void* context) {
                 }
 
                 // Replace the old entry with the new one
-                free(queuedCb);
+                PltFree(queuedCb);
                 queuedCb = nextCb;
             }
 
@@ -989,7 +989,7 @@ static void asyncCallbackThreadFunc(void* context) {
                 }
 
                 // Replace the old entry with the new one
-                free(queuedCb);
+                PltFree(queuedCb);
                 queuedCb = nextCb;
             }
 
@@ -1016,7 +1016,7 @@ static void asyncCallbackThreadFunc(void* context) {
             break;
         }
 
-        free(queuedCb);
+        PltFree(queuedCb);
     }
 }
 
@@ -1036,7 +1036,7 @@ static void queueAsyncCallback(PNVCTL_ENET_PACKET_HEADER_V1 ctlHdr, int packetLe
 
     LC_ASSERT(needsAsyncCallback(ctlHdr->type));
 
-    queuedCb = malloc(sizeof(*queuedCb));
+    queuedCb = PltMalloc(sizeof(*queuedCb));
     if (!queuedCb) {
         return;
     }
@@ -1090,14 +1090,14 @@ static void queueAsyncCallback(PNVCTL_ENET_PACKET_HEADER_V1 ctlHdr, int packetLe
     else {
         // Unhandled packet type from needsAsyncCallback()
         LC_ASSERT(false);
-        free(queuedCb);
+        PltFree(queuedCb);
         return;
     }
 
     err = LbqOfferQueueItem(&asyncCallbackQueue, queuedCb, &queuedCb->entry);
     if (err != LBQ_SUCCESS) {
         Limelog("Failed to queue async callback: %d\n", err);
-        free(queuedCb);
+        PltFree(queuedCb);
     }
 }
 
@@ -1371,11 +1371,11 @@ static void controlReceiveThreadFunc(void* context) {
                 enet_peer_disconnect_now(peer, 0);
                 PltUnlockMutex(&enetMutex);
                 ListenerCallbacks.connectionTerminated((int)terminationErrorCode);
-                free(ctlHdr);
+                PltFree(ctlHdr);
                 return;
             }
 
-            free(ctlHdr);
+            PltFree(ctlHdr);
         }
         else if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
             Limelog("Control stream received unexpected disconnect event\n");
@@ -1413,11 +1413,11 @@ static void lossStatsThreadFunc(void* context) {
                                          LbqGetItemCount(&frameFecStatusQueue) > 0)) {
                         Limelog("Loss Stats: Sending frame FEC status message failed: %d\n", (int)LastSocketError());
                         ListenerCallbacks.connectionTerminated(LastSocketFail());
-                        free(queuedFrameStatus);
+                        PltFree(queuedFrameStatus);
                         return;
                     }
 
-                    free(queuedFrameStatus);
+                    PltFree(queuedFrameStatus);
                 }
             }
 
@@ -1448,7 +1448,7 @@ static void lossStatsThreadFunc(void* context) {
         // Sunshine should use the newer codepath above
         LC_ASSERT(!IS_SUNSHINE());
 
-        lossStatsPayload = malloc(payloadLengths[IDX_LOSS_STATS]);
+        lossStatsPayload = PltMalloc(payloadLengths[IDX_LOSS_STATS]);
         if (lossStatsPayload == NULL) {
             Limelog("Loss Stats: malloc() failed\n");
             ListenerCallbacks.connectionTerminated(-1);
@@ -1473,7 +1473,7 @@ static void lossStatsThreadFunc(void* context) {
                                       CTRL_CHANNEL_GENERIC,
                                       0,
                                       false)) {
-                free(lossStatsPayload);
+                PltFree(lossStatsPayload);
                 Limelog("Loss Stats: Transaction failed: %d\n", (int)LastSocketError());
                 ListenerCallbacks.connectionTerminated(LastSocketFail());
                 return;
@@ -1483,7 +1483,7 @@ static void lossStatsThreadFunc(void* context) {
             PltSleepMsInterruptible(&lossStatsThread, LOSS_REPORT_INTERVAL_MS);
         }
 
-        free(lossStatsPayload);
+        PltFree(lossStatsPayload);
     }
 }
 
@@ -1611,7 +1611,7 @@ static void referenceFrameControlFunc(void* context) {
                 // Send LTR frame ACK
                 confirmLongtermReferenceFrame(qfit->startFrame);
             }
-            free(qfit);
+            PltFree(qfit);
         } while (LbqPollQueueElement(&referenceFrameControlQueue, (void**)&qfit) == LBQ_SUCCESS);
 
         if (invalidate) {

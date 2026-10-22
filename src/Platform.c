@@ -91,7 +91,7 @@ void* ThreadProc(void* context) {
 
     ctx->entry(ctx->context);
 
-    free(ctx);
+    PltFree(ctx);
 
 #if defined(LC_WINDOWS) || defined(__vita__) || defined(__WIIU__)
     return 0;
@@ -219,14 +219,14 @@ void PltInterruptThread(PLT_THREAD* thread) {
 
 #ifdef __WIIU__
 static void thread_deallocator(OSThread *thread, void *stack) {
-    free(stack);
+    PltFree(stack);
 }
 #endif
 
 int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THREAD* thread) {
     struct thread_context* ctx;
 
-    ctx = (struct thread_context*)malloc(sizeof(*ctx));
+    ctx = (struct thread_context*)PltMalloc(sizeof(*ctx));
     if (ctx == NULL) {
         return -1;
     }
@@ -241,7 +241,7 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
     {
         thread->handle = CreateThread(NULL, 0, ThreadProc, ctx, 0, NULL);
         if (thread->handle == NULL) {
-            free(ctx);
+            PltFree(ctx);
             return -1;
         }
     }
@@ -252,7 +252,7 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
     const int stack_size = 4 * 1024 * 1024;
     uint8_t* stack = (uint8_t*)memalign(16, stack_size);
     if (stack == NULL) {
-        free(ctx);
+        PltFree(ctx);
         return -1;
     }
 
@@ -263,8 +263,8 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
                         stack + stack_size, stack_size,
                         0x10, OS_THREAD_ATTRIB_AFFINITY_ANY))
     {
-        free(ctx);
-        free(stack);
+        PltFree(ctx);
+        PltFree(stack);
         return -1;
     }
 
@@ -283,7 +283,7 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
                                     -1,
                                     false);
         if (thread->thread == NULL) {
-            free(ctx);
+            PltFree(ctx);
             return -1;
         }
     }
@@ -302,7 +302,7 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
         int err = pthread_create(&thread->thread, &attr, ThreadProc, ctx);
         pthread_attr_destroy(&attr);
         if (err != 0) {
-            free(ctx);
+            PltFree(ctx);
             return err;
         }
 
@@ -642,3 +642,26 @@ void cleanupPlatform(void) {
     LC_ASSERT(activeEvents == 0);
     LC_ASSERT(activeCondVars == 0);
 }
+
+#ifdef TRACY_ENABLE
+
+void* PltMalloc(size_t size) {
+    void *ptr = malloc(size);
+    if (ptr == NULL && size != 0) {
+        fprintf(stderr, "[ERROR] Out of memory (requested %zu bytes)\n", size);
+        exit(EXIT_FAILURE);
+    }
+    TracyCAlloc(ptr, size);
+    return ptr;
+}
+
+void PltFree(void* ptr) {
+    if (ptr == NULL) {
+        fprintf(stderr, "[ERROR] free on null ptr\n");
+        exit(EXIT_FAILURE);
+    }
+    TracyCFree(ptr);
+    free(ptr);
+}
+
+#endif

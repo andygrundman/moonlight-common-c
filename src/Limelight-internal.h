@@ -13,6 +13,8 @@
 
 #include <enet/enet.h>
 
+#include <tracy/TracyC.h>
+
 // Common globals
 extern char* RemoteAddrString;
 extern struct sockaddr_storage RemoteAddr;

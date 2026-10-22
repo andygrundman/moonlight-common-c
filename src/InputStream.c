@@ -138,7 +138,7 @@ void destroyInputStream(void) {
         nextEntry = entry->flink;
 
         // The entry is stored in the data buffer
-        free(entry->data);
+        PltFree(entry->data);
 
         entry = nextEntry;
     }
@@ -149,7 +149,7 @@ void destroyInputStream(void) {
         nextEntry = entry->flink;
 
         // The entry is stored in the data buffer
-        free(entry->data);
+        PltFree(entry->data);
 
         entry = nextEntry;
     }
@@ -197,7 +197,7 @@ static void freePacketHolder(PPACKET_HOLDER holder) {
 
     // Place the packet holder back into the free list if it's a standard size entry
     if (PACKET_SIZE(holder) > (int)sizeof(*holder) || LbqOfferQueueItem(&packetHolderFreeList, holder, &holder->entry) != LBQ_SUCCESS) {
-        free(holder);
+        PltFree(holder);
     }
 }
 
@@ -212,7 +212,7 @@ static PPACKET_HOLDER allocatePacketHolder(int extraLength) {
         // but this is on purpose. It allows us assume we have a full holder even
         // if packetLength < sizeof(*holder) and put this allocation into the free
         // list.
-        return malloc(sizeof(*holder) + extraLength);
+        return PltMalloc(sizeof(*holder) + extraLength);
     }
 
     // Grab an entry from the free list (if available)
@@ -228,7 +228,7 @@ static PPACKET_HOLDER allocatePacketHolder(int extraLength) {
         LC_ASSERT(err == LBQ_NO_ELEMENT);
 
         // Otherwise we'll have to allocate
-        return malloc(sizeof(*holder));
+        return PltMalloc(sizeof(*holder));
     }
 }
 

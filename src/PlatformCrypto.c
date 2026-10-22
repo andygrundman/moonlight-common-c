@@ -493,7 +493,7 @@ bool PltDecryptMessage(PPLT_CRYPTO_CONTEXT ctx, int algorithm, int flags,
 }
 
 PPLT_CRYPTO_CONTEXT PltCreateCryptoContext(void) {
-    PPLT_CRYPTO_CONTEXT ctx = malloc(sizeof(*ctx));
+    PPLT_CRYPTO_CONTEXT ctx = PltMalloc(sizeof(*ctx));
     if (!ctx) {
         return NULL;
     }
@@ -507,7 +507,7 @@ PPLT_CRYPTO_CONTEXT PltCreateCryptoContext(void) {
 #else
     ctx->ctx = EVP_CIPHER_CTX_new();
     if (!ctx->ctx) {
-        free(ctx);
+        PltFree(ctx);
         return NULL;
     }
 #endif
@@ -531,7 +531,7 @@ void PltDestroyCryptoContext(PPLT_CRYPTO_CONTEXT ctx) {
 #else
     EVP_CIPHER_CTX_free(ctx->ctx);
 #endif
-    free(ctx);
+    PltFree(ctx);
 }
 
 void PltGenerateRandomData(unsigned char* data, int length) {

@@ -116,7 +116,7 @@ static void freePacketList(PLINKED_BLOCKING_QUEUE_ENTRY entry) {
         nextEntry = entry->flink;
 
         // The entry is stored within the data allocation
-        free(entry->data);
+        PltFree(entry->data);
 
         entry = nextEntry;
     }
@@ -259,7 +259,7 @@ static void AudioReceiveThreadProc(void* context) {
     waitingForAudioMs = 0;
     while (!PltIsThreadInterrupted(&receiveThread)) {
         if (packet == NULL) {
-            packet = (PQUEUED_AUDIO_PACKET)malloc(sizeof(*packet));
+            packet = (PQUEUED_AUDIO_PACKET)PltMalloc(sizeof(*packet));
             if (packet == NULL) {
                 Limelog("Audio Receive: malloc() failed\n");
                 ListenerCallbacks.connectionTerminated(-1);
@@ -355,7 +355,7 @@ static void AudioReceiveThreadProc(void* context) {
                     if ((AudioCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) == 0) {
                         if (!queuePacketToLbq(&queuedPacket)) {
                             // An exit signal was received
-                            free(queuedPacket);
+                            PltFree(queuedPacket);
                             break;
                         }
                         else {
@@ -365,7 +365,7 @@ static void AudioReceiveThreadProc(void* context) {
                     }
                     else {
                         decodeInputData(queuedPacket);
-                        free(queuedPacket);
+                        PltFree(queuedPacket);
                     }
                 }
 
@@ -378,7 +378,7 @@ static void AudioReceiveThreadProc(void* context) {
     }
 
     if (packet != NULL) {
-        free(packet);
+        PltFree(packet);
     }
 }
 
@@ -395,7 +395,7 @@ static void AudioDecoderThreadProc(void* context) {
 
         decodeInputData(packet);
 
-        free(packet);
+        PltFree(packet);
     }
 }
 

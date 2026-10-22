@@ -115,7 +115,7 @@ static void VideoReceiveThreadProc(void* context) {
 
     // Allocate a staging buffer to use for each received packet
     if (encrypted) {
-        encryptedBuffer = (char*)malloc(receiveSize);
+        encryptedBuffer = (char*)PltMalloc(receiveSize);
         if (encryptedBuffer == NULL) {
             Limelog("Video Receive: malloc() failed\n");
             ListenerCallbacks.connectionTerminated(-1);
@@ -129,10 +129,11 @@ static void VideoReceiveThreadProc(void* context) {
     waitingForVideoMs = 0;
     uint64_t pktRecvUs = 0;
     while (!PltIsThreadInterrupted(&receiveThread)) {
+        TracyCZoneN(ctx, "VideoRecv UDP", 1);
         PRTP_PACKET packet;
 
         if (buffer == NULL) {
-            buffer = (char*)malloc(bufferSize);
+            buffer = (char*)PltMalloc(bufferSize);
             if (buffer == NULL) {
                 Limelog("Video Receive: malloc() failed\n");
                 ListenerCallbacks.connectionTerminated(-1);
@@ -193,6 +194,7 @@ static void VideoReceiveThreadProc(void* context) {
 
         // Decrypt the packet into the buffer if encryption is enabled
         if (encrypted) {
+            TracyCZoneN(ctxEnc, "UDP decrypt", 1);
             PENC_VIDEO_HEADER encHeader = (PENC_VIDEO_HEADER)encryptedBuffer;
 
             // If this frame is below our current frame number, discard it before decryption
@@ -230,6 +232,7 @@ static void VideoReceiveThreadProc(void* context) {
                 Limelog("Failed to decrypt video packet!\n");
                 continue;
             }
+            TracyCZoneEnd(ctxEnc);
         }
 
         // Convert fields to host byte-order
@@ -283,14 +286,16 @@ static void VideoReceiveThreadProc(void* context) {
             // The queue owns the buffer
             buffer = NULL;
         }
+
+        TracyCZoneEnd(ctx);
     }
 
     if (buffer != NULL) {
-        free(buffer);
+        PltFree(buffer);
     }
 
     if (encryptedBuffer != NULL) {
-        free(encryptedBuffer);
+        PltFree(encryptedBuffer);
     }
 }
 

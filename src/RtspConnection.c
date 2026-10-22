@@ -31,21 +31,21 @@ static ENetPeer* peer;
 // Create RTSP Option
 static POPTION_ITEM createOptionItem(char* option, char* content)
 {
-    POPTION_ITEM item = malloc(sizeof(*item));
+    POPTION_ITEM item = PltMalloc(sizeof(*item));
     if (item == NULL) {
         return NULL;
     }
 
     item->option = strdup(option);
     if (item->option == NULL) {
-        free(item);
+        PltFree(item);
         return NULL;
     }
 
     item->content = strdup(content);
     if (item->content == NULL) {
-        free(item->option);
-        free(item);
+        PltFree(item->option);
+        PltFree(item);
         return NULL;
     }
 
@@ -115,9 +115,9 @@ static char* sealRtspMessage(PRTSP_MESSAGE request, int* messageLen) {
         return serializedMessage;
     }
 
-    encryptedMessage = (PENC_RTSP_HEADER)malloc(sizeof(ENC_RTSP_HEADER) + plaintextLen);
+    encryptedMessage = (PENC_RTSP_HEADER)PltMalloc(sizeof(ENC_RTSP_HEADER) + plaintextLen);
     if (encryptedMessage == NULL) {
-        free(serializedMessage);
+        PltFree(serializedMessage);
         return NULL;
     }
 
@@ -141,10 +141,10 @@ static char* sealRtspMessage(PRTSP_MESSAGE request, int* messageLen) {
                                 encryptedMessage->tag, sizeof(encryptedMessage->tag),
                                 (uint8_t*)serializedMessage, plaintextLen,
                                 (uint8_t*)(encryptedMessage + 1), messageLen);
-    free(serializedMessage);
+    PltFree(serializedMessage);
 
     if (!success) {
-        free(encryptedMessage);
+        PltFree(encryptedMessage);
         return NULL;
     }
 
@@ -207,7 +207,7 @@ static bool unsealRtspMessage(char* rawMessage, int rawMessageLen, PRTSP_MESSAGE
         iv[11] = (uint8_t)'R'; // RTSP stream
 
         decryptedMessageLen = rawMessageLen - sizeof(ENC_RTSP_HEADER);
-        decryptedMessage = (char*)malloc(decryptedMessageLen);
+        decryptedMessage = (char*)PltMalloc(decryptedMessageLen);
         if (decryptedMessage == NULL) {
             return false;
         }
@@ -220,7 +220,7 @@ static bool unsealRtspMessage(char* rawMessage, int rawMessageLen, PRTSP_MESSAGE
                                     (uint8_t*)decryptedMessage, &decryptedMessageLen);
         if (!success) {
             Limelog("Failed to decrypt RTSP response\n");
-            free(decryptedMessage);
+            PltFree(decryptedMessage);
             return false;
         }
     }
@@ -238,7 +238,7 @@ static bool unsealRtspMessage(char* rawMessage, int rawMessageLen, PRTSP_MESSAGE
     }
 
     if (decryptedMessage != rawMessage) {
-        free(decryptedMessage);
+        PltFree(decryptedMessage);
     }
 
     return success;
@@ -318,7 +318,7 @@ static bool transactRtspMessageEnet(PRTSP_MESSAGE request, PRTSP_MESSAGE respons
         goto Exit;
     }
 
-    responseBuffer = malloc(event.packet->dataLength);
+    responseBuffer = PltMalloc(event.packet->dataLength);
     if (responseBuffer == NULL) {
         Limelog("Failed to allocate RTSP response buffer\n");
         enet_packet_destroy(event.packet);
@@ -373,12 +373,12 @@ Exit:
 
     // Free the serialized buffer
     if (serializedMessage != NULL) {
-        free(serializedMessage);
+        PltFree(serializedMessage);
     }
 
     // Free the response buffer
     if (responseBuffer != NULL) {
-        free(responseBuffer);
+        PltFree(responseBuffer);
     }
 
     return ret;
@@ -506,11 +506,11 @@ static bool transactRtspMessageTcp(PRTSP_MESSAGE request, PRTSP_MESSAGE response
 
 Exit:
     if (serializedMessage != NULL) {
-        free(serializedMessage);
+        PltFree(serializedMessage);
     }
 
     if (responseBuffer != NULL) {
-        free(responseBuffer);
+        PltFree(responseBuffer);
     }
 
     closeSocket(sock);
@@ -871,7 +871,7 @@ static bool parseUrlAddrFromRtspUrlString(const char* rtspUrlString, char* desti
 
     // If we hit the end of the string prior to parsing the prefix, we cannot proceed
     if (rtspUrlScratchBuffer[prefixLen - 2] == 0) {
-        free(rtspUrlScratchBuffer);
+        PltFree(rtspUrlScratchBuffer);
         return false;
     }
 
@@ -893,11 +893,11 @@ static bool parseUrlAddrFromRtspUrlString(const char* rtspUrlString, char* desti
     }
 
     if (!PltSafeStrcpy(destination, destinationLength, rtspUrlScratchBuffer + prefixLen)) {
-        free(rtspUrlScratchBuffer);
+        PltFree(rtspUrlScratchBuffer);
         return false;
     }
 
-    free(rtspUrlScratchBuffer);
+    PltFree(rtspUrlScratchBuffer);
     return true;
 }
 
@@ -1463,7 +1463,7 @@ Exit:
     }
 
     if (sessionIdString != NULL) {
-        free(sessionIdString);
+        PltFree(sessionIdString);
         sessionIdString = NULL;
     }
 

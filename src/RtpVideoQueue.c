@@ -56,7 +56,7 @@ static void purgeListEntries(PRTPV_QUEUE_LIST list) {
     while (list->head != NULL) {
         PRTPV_QUEUE_ENTRY entry = list->head;
         list->head = entry->next;
-        free(entry->packet);
+        PltFree(entry->packet);
     }
 
     list->tail = NULL;
@@ -217,7 +217,7 @@ static bool queuePacket(PRTP_VIDEO_QUEUE queue, PRTPV_QUEUE_ENTRY newEntry, PRTP
     Limelog("FEC recovery returned corrupt packet %d" \
             " (frame %d)", rtpPacket->sequenceNumber, \
             queue->currentFrameNumber);               \
-    free(packets[i]);                                 \
+    PltFree(packets[i]);                                 \
     continue
 
 // Returns 0 if the frame is completely constructed
@@ -351,7 +351,7 @@ static int reconstructFrame(PRTP_VIDEO_QUEUE queue) {
     unsigned int i;
     for (i = 0; i < totalPackets; i++) {
         if (marks[i]) {
-            packets[i] = malloc(packetBufferSize);
+            packets[i] = PltMalloc(packetBufferSize);
             if (packets[i] == NULL) {
                 ret = -4;
                 goto cleanup_packets;
@@ -445,7 +445,7 @@ cleanup_packets:
 
                     // This drop was fake, so we don't want to actually submit it to the depacketizer.
                     // It will get confused because it's already seen this packet before.
-                    free(packets[i]);
+                    PltFree(packets[i]);
                     continue;
                 }
 #endif
@@ -478,7 +478,7 @@ cleanup_packets:
                     queue->recoveredDataPackets++;
                 }
             } else if (packets[i] != NULL) {
-                free(packets[i]);
+                PltFree(packets[i]);
             }
         }
     }
@@ -487,10 +487,10 @@ cleanup:
     reed_solomon_release(rs);
 
     if (packets != NULL)
-        free(packets);
+        PltFree(packets);
 
     if (marks != NULL)
-        free(marks);
+        PltFree(marks);
 
     return ret;
 }
@@ -519,7 +519,7 @@ static void stageCompleteFecBlock(PRTP_VIDEO_QUEUE queue) {
                 removeEntryFromList(&queue->pendingFecBlockList, parityEntry);
 
                 // Free the entry and packet
-                free(parityEntry->packet);
+                PltFree(parityEntry->packet);
 
                 continue;
             }
@@ -596,7 +596,7 @@ static bool completeBlockWithLostPackets(PRTP_VIDEO_QUEUE queue, const char* rea
         if (!entry->isParity) {
             unsigned int index = U16(entry->packet->sequenceNumber - queue->bufferLowestSequenceNumber);
             if (index >= queue->bufferDataPackets) {
-                free(present);
+                PltFree(present);
                 return false;
             }
             present[index] = true;
@@ -605,7 +605,7 @@ static bool completeBlockWithLostPackets(PRTP_VIDEO_QUEUE queue, const char* rea
     }
 
     if (reference == NULL || (queue->multiFecCurrentBlockNumber == 0 && !present[0])) {
-        free(present);
+        PltFree(present);
         return false;
     }
 
@@ -632,7 +632,7 @@ static bool completeBlockWithLostPackets(PRTP_VIDEO_QUEUE queue, const char* rea
         if (buffer == NULL) {
             // The zero-filled packets already queued stay with the block and are
             // purged with it.
-            free(present);
+            PltFree(present);
             return false;
         }
 
@@ -671,7 +671,7 @@ static bool completeBlockWithLostPackets(PRTP_VIDEO_QUEUE queue, const char* rea
         lostPackets++;
     }
 
-    free(present);
+    PltFree(present);
 
 #ifdef FEC_VERBOSE
     Limelog("Delivering frame %u (block %d of %d) without %u of %u data packets (%s)\n",

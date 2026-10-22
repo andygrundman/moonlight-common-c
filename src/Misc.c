@@ -106,7 +106,7 @@ int extractVersionQuadFromString(const char* string, int* quad) {
 void* extendBuffer(void* ptr, size_t newSize) {
     void* newBuf = realloc(ptr, newSize);
     if (newBuf == NULL && ptr != NULL) {
-        free(ptr);
+        PltFree(ptr);
     }
     return newBuf;
 }

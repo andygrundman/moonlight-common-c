@@ -18,7 +18,7 @@ static void freeAttributeList(PSDP_OPTION head) {
     PSDP_OPTION next;
     while (head != NULL) {
         next = head->next;
-        free(head);
+        PltFree(head);
         head = next;
     }
 }
@@ -87,13 +87,13 @@ static int fillSerializedAttributeList(char* buffer, size_t length, PSDP_OPTION 
 static int addAttributeBinary(PSDP_OPTION* head, char* name, const void* payload, int payloadLen) {
     PSDP_OPTION option, currentOption;
 
-    option = malloc(sizeof(*option) + payloadLen);
+    option = PltMalloc(sizeof(*option) + payloadLen);
     if (option == NULL) {
         return -1;
     }
 
     if (!PltSafeStrcpy(option->name, sizeof(option->name), name)) {
-        free(option);
+        PltFree(option);
         return -1;
     }
 
@@ -446,6 +446,7 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveAdaptiveFec", "0");
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveAdaptiveBitrate", "0");
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveFeatures", "1");
+            //err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowavePaceMbps", "1000");
         }
         else if (NegotiatedVideoFormat & VIDEO_FORMAT_MASK_AV1) {
             err |= addAttributeString(&optionHead, "x-nv-vqos[0].bitStreamFormat", "2");
@@ -601,7 +602,7 @@ char* getSdpPayloadForStreamConfig(int rtspClientVersion, int* length) {
     }
 
     attributeListSize = getSerializedAttributeListSize(attributeList);
-    payload = malloc(MAX_SDP_HEADER_LEN + MAX_SDP_TAIL_LEN + attributeListSize);
+    payload = PltMalloc(MAX_SDP_HEADER_LEN + MAX_SDP_TAIL_LEN + attributeListSize);
     if (payload == NULL) {
         freeAttributeList(attributeList);
         return NULL;
@@ -611,7 +612,7 @@ char* getSdpPayloadForStreamConfig(int rtspClientVersion, int* length) {
     written = fillSdpHeader(payload, MAX_SDP_HEADER_LEN, rtspClientVersion, urlSafeAddr);
     if (written < 0 || written >= MAX_SDP_HEADER_LEN) {
         LC_ASSERT(false);
-        free(payload);
+        PltFree(payload);
         freeAttributeList(attributeList);
         return NULL;
     }
@@ -621,7 +622,7 @@ char* getSdpPayloadForStreamConfig(int rtspClientVersion, int* length) {
     written = fillSerializedAttributeList(&payload[offset], attributeListSize, attributeList);
     if (written < 0 || written >= attributeListSize) {
         LC_ASSERT(false);
-        free(payload);
+        PltFree(payload);
         freeAttributeList(attributeList);
         return NULL;
     }
@@ -631,7 +632,7 @@ char* getSdpPayloadForStreamConfig(int rtspClientVersion, int* length) {
     written = fillSdpTail(&payload[offset], MAX_SDP_TAIL_LEN);
     if (written < 0 || written >= MAX_SDP_TAIL_LEN) {
         LC_ASSERT(false);
-        free(payload);
+        PltFree(payload);
         freeAttributeList(attributeList);
         return NULL;
     }
@@ -641,5 +642,8 @@ char* getSdpPayloadForStreamConfig(int rtspClientVersion, int* length) {
 
     freeAttributeList(attributeList);
     *length = offset;
+
+    Limelog("SDP payload:\n%s\n", payload);
+
     return payload;
 }

@@ -180,7 +180,7 @@ int parseRtspMessage(PRTSP_MESSAGE msg, char* rtspMessage, int length) {
     }
 
     // Put the raw message into a string we can use
-    char* messageBuffer = malloc(length + 1);
+    char* messageBuffer = PltMalloc(length + 1);
     if (messageBuffer == NULL) {
         exitCode = RTSP_ERROR_NO_MEMORY;
         goto ExitFailure;
@@ -283,7 +283,7 @@ int parseRtspMessage(PRTSP_MESSAGE msg, char* rtspMessage, int length) {
         trimTrailingWhitespace(val);
 
         // Create a new node containing the option and content
-        newOpt = (POPTION_ITEM)malloc(sizeof(OPTION_ITEM));
+        newOpt = (POPTION_ITEM)PltMalloc(sizeof(OPTION_ITEM));
         if (newOpt == NULL) {
             exitCode = RTSP_ERROR_NO_MEMORY;
             goto ExitFailure;
@@ -330,7 +330,7 @@ ExitFailure:
         freeOptionList(options);
     }
     if (messageBuffer) {
-        free(messageBuffer);
+        PltFree(messageBuffer);
     }
     return exitCode;
 }
@@ -401,13 +401,13 @@ void insertOption(POPTION_ITEM* optionsHead, POPTION_ITEM opt) {
         // Check for duplicate option; if so, replace the option currently there
         if (!rtspStrCaseCmp(current->option, opt->option)) {
             if (current->flags & FLAG_ALLOCATED_OPTION_FIELDS) {
-                free(current->option);
-                free(current->content);
+                PltFree(current->option);
+                PltFree(current->content);
             }
             current->option = opt->option;
             current->content = opt->content;
             current->flags = opt->flags;
-            free(opt);
+            PltFree(opt);
             return;
         }
         if (current->next == NULL) {
@@ -427,10 +427,10 @@ void freeOptionList(POPTION_ITEM optionsHead) {
         temp = current;
         current = current->next;
         if (temp->flags & FLAG_ALLOCATED_OPTION_FIELDS) {
-            free(temp->option);
-            free(temp->content);
+            PltFree(temp->option);
+            PltFree(temp->content);
         }
-        free(temp);
+        PltFree(temp);
     }
 }
 
@@ -454,7 +454,7 @@ char* serializeRtspMessage(PRTSP_MESSAGE msg, int* serializedLength) {
     POPTION_ITEM current = msg->options;
     char statusCodeStr[16];
 
-    serializedMessage = malloc(size);
+    serializedMessage = PltMalloc(size);
     if (serializedMessage == NULL) {
         return NULL;
     }
@@ -524,7 +524,7 @@ char* serializeRtspMessage(PRTSP_MESSAGE msg, int* serializedLength) {
     return serializedMessage;
 
 fail:
-    free(serializedMessage);
+    PltFree(serializedMessage);
     return NULL;
 }
 
@@ -532,7 +532,7 @@ fail:
 void freeMessage(PRTSP_MESSAGE msg) {
     // If we've allocated the message buffer
     if (msg->flags & FLAG_ALLOCATED_MESSAGE_BUFFER) {
-        free(msg->messageBuffer);
+        PltFree(msg->messageBuffer);
     }
 
     // If we've allocated any option items
@@ -542,6 +542,6 @@ void freeMessage(PRTSP_MESSAGE msg) {
 
     // If we've allocated the payload
     if (msg->flags & FLAG_ALLOCATED_PAYLOAD) {
-        free(msg->payload);
+        PltFree(msg->payload);
     }
 }

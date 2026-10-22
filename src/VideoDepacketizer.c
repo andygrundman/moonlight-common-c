@@ -89,7 +89,7 @@ static void cleanupFrameState(void) {
     while (nalChainHead != NULL) {
         lastEntry = (PLENTRY_INTERNAL)nalChainHead;
         nalChainHead = lastEntry->entry.next;
-        free(lastEntry->allocPtr);
+        PltFree(lastEntry->allocPtr);
     }
 
     nalChainTail = NULL;
@@ -307,12 +307,12 @@ void LiCompleteVideoFrame(VIDEO_FRAME_HANDLE handle, int drStatus) {
     while (qdu->decodeUnit.bufferList != NULL) {
         lastEntry = (PLENTRY_INTERNAL)qdu->decodeUnit.bufferList;
         qdu->decodeUnit.bufferList = lastEntry->entry.next;
-        free(lastEntry->allocPtr);
+        PltFree(lastEntry->allocPtr);
     }
 
     // We will have stack-allocated entries iff we have a direct-submit decoder
     if ((VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) == 0) {
-        free(qdu);
+        PltFree(qdu);
     }
 }
 
@@ -481,7 +481,7 @@ static void reassembleFrame(int frameNumber, bool frameIsLTR) {
 
         // Use a stack allocation if we won't be queuing this
         if ((VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) == 0) {
-            qdu = (PQUEUED_DECODE_UNIT)malloc(sizeof(*qdu));
+            qdu = (PQUEUED_DECODE_UNIT)PltMalloc(sizeof(*qdu));
         }
         else {
             qdu = &qduDS;
@@ -531,7 +531,7 @@ static void reassembleFrame(int frameNumber, bool frameIsLTR) {
                     dropFrameState();
 
                     // Free the DU we were going to queue
-                    free(qdu);
+                    PltFree(qdu);
 
                     // Free all frames in the decode unit queue
                     freeDecodeUnitList(LbqFlushQueueItems(&decodeUnitQueue));
@@ -615,7 +615,7 @@ static void queueFragment(PLENTRY_INTERNAL* existingEntry, char* data, int offse
     PLENTRY_INTERNAL entry;
 
     if (existingEntry == NULL || *existingEntry == NULL) {
-        entry = (PLENTRY_INTERNAL)malloc(sizeof(*entry) + length);
+        entry = (PLENTRY_INTERNAL)PltMalloc(sizeof(*entry) + length);
     }
     else {
         entry = *existingEntry;
@@ -1218,7 +1218,7 @@ void queueRtpPacket(PRTPV_QUEUE_ENTRY queueEntryPtr) {
 
     if (existingEntry != NULL) {
         // processRtpPayload didn't want this packet, so just free it
-        free(existingEntry->allocPtr);
+        PltFree(existingEntry->allocPtr);
     }
 }
 

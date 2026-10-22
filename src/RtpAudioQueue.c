@@ -128,7 +128,7 @@ static PRTPA_FEC_BLOCK allocateFecBlock(PRTP_AUDIO_QUEUE queue, uint16_t blockSi
             queue->freeBlockCount--;
 
             // Free the existing block
-            free(block);
+            PltFree(block);
         }
     }
     else {
@@ -138,7 +138,7 @@ static PRTPA_FEC_BLOCK allocateFecBlock(PRTP_AUDIO_QUEUE queue, uint16_t blockSi
     // We either didn't have any free entries or the block
     // size didn't match, so allocate a new FEC block now.
     uint16_t dataPacketSize = blockSize + sizeof(RTP_PACKET);
-    return malloc(sizeof(*block) + (RTPA_DATA_SHARDS * dataPacketSize) + (RTPA_FEC_SHARDS * blockSize));
+    return PltMalloc(sizeof(*block) + (RTPA_DATA_SHARDS * dataPacketSize) + (RTPA_FEC_SHARDS * blockSize));
 }
 
 static void freeFecBlockHead(PRTP_AUDIO_QUEUE queue) {
@@ -162,7 +162,7 @@ static void freeFecBlockHead(PRTP_AUDIO_QUEUE queue) {
 
     if (queue->freeBlockCount >= RTPA_CACHED_FEC_BLOCK_LIMIT) {
         // Too many entries cached, so just free this one
-        free(blockHead);
+        PltFree(blockHead);
     }
     else {
         // Place this entry at the head of the free list for better cache behavior
@@ -176,7 +176,7 @@ void RtpaCleanupQueue(PRTP_AUDIO_QUEUE queue) {
     while (queue->blockHead != NULL) {
         PRTPA_FEC_BLOCK block = queue->blockHead;
         queue->blockHead = block->next;
-        free(block);
+        PltFree(block);
     }
 
     queue->blockTail = NULL;
@@ -185,7 +185,7 @@ void RtpaCleanupQueue(PRTP_AUDIO_QUEUE queue) {
         PRTPA_FEC_BLOCK block = queue->freeBlockHead;
         queue->freeBlockHead = block->next;
         queue->freeBlockCount--;
-        free(block);
+        PltFree(block);
     }
 
     LC_ASSERT(queue->freeBlockCount == 0);
@@ -437,7 +437,7 @@ static bool completeFecBlock(PRTP_AUDIO_QUEUE queue, PRTPA_FEC_BLOCK block) {
     } while (block->marks[dropIndex]);
 
     // Copy the original data to validate later
-    PRTP_PACKET droppedRtpPacket = malloc(sizeof(RTP_PACKET) + block->blockSize);
+    PRTP_PACKET droppedRtpPacket = PltMalloc(sizeof(RTP_PACKET) + block->blockSize);
     memcpy(droppedRtpPacket, block->dataPackets[dropIndex], sizeof(RTP_PACKET) + block->blockSize);
 
     // Fake the drop by setting the mark bit and zeroing the "missing" packet
@@ -500,7 +500,7 @@ static bool completeFecBlock(PRTP_AUDIO_QUEUE queue, PRTPA_FEC_BLOCK block) {
         LC_ASSERT_VT(recoveryErrors == 0);
     }
 
-    free(droppedRtpPacket);
+    PltFree(droppedRtpPacket);
 #endif
 
     return true;
@@ -672,7 +672,7 @@ PRTP_PACKET RtpaGetQueuedPacket(PRTP_AUDIO_QUEUE queue, uint16_t customHeaderLen
         if (nextBlock->marks[nextBlock->nextDataPacketIndex]) {
             // This packet is missing. Return an empty entry to let the caller
             // know to perform packet loss concealment for this frame.
-            lostPacket = malloc(customHeaderLength);
+            lostPacket = PltMalloc(customHeaderLength);
             if (lostPacket == NULL) {
                 return NULL;
             }
@@ -705,7 +705,7 @@ PRTP_PACKET RtpaGetQueuedPacket(PRTP_AUDIO_QUEUE queue, uint16_t customHeaderLen
     // Return the next RTP sequence number by indexing into the most recent FEC block
     if (queueHasPacketReady(queue)) {
         PRTPA_FEC_BLOCK nextBlock = queue->blockHead;
-        PRTP_PACKET packet = malloc(customHeaderLength + sizeof(RTP_PACKET) + nextBlock->blockSize);
+        PRTP_PACKET packet = PltMalloc(customHeaderLength + sizeof(RTP_PACKET) + nextBlock->blockSize);
         if (packet == NULL) {
             return NULL;
         }

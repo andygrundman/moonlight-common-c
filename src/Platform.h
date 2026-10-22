@@ -184,3 +184,10 @@ uint64_t PltGetMicroseconds(void);
 
 uint64_t PltGetMillis(void);
 
+#ifdef TRACY_ENABLE
+    void* PltMalloc(size_t size);
+    void PltFree(void* ptr);
+#else
+    #define PltMalloc malloc
+    #define PltFree free
+#endif
