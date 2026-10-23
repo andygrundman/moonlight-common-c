@@ -1,6 +1,8 @@
 
 cmake_minimum_required(VERSION 3.1...4.0)
+include(cmake/ReleaseWithTracy.cmake)
 project(moonlight-common-c LANGUAGES C)
+moonlight_initialize_tracy_flags()
 
 string(TOUPPER "x${CMAKE_BUILD_TYPE}" BUILD_TYPE)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -38,8 +40,17 @@ endif()
 
 target_link_libraries(moonlight-common-c PRIVATE enet)
 
+set(_moonlight_tracy_enabled "$<CONFIG:ReleaseWithTracy>")
+set(_moonlight_tracy_definitions
+  TRACY_ENABLE TRACY_ON_DEMAND TRACY_REVERSE_CONNECT TRACY_CONNECT_PORT=8087)
+target_compile_definitions(moonlight-common-c PRIVATE
+  "$<${_moonlight_tracy_enabled}:${_moonlight_tracy_definitions}>")
+
 if(MSVC)
   target_compile_options(moonlight-common-c PRIVATE /W3 /wd4100 /wd4232 /wd5105 /WX)
+  if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(moonlight-common-c PRIVATE /experimental:c11atomics)
+  endif()
   target_link_libraries(moonlight-common-c PRIVATE ws2_32.lib winmm.lib)
 elseif(MINGW)
   target_link_libraries(moonlight-common-c PRIVATE -lws2_32 -lwinmm)
@@ -115,5 +126,8 @@ target_include_directories(moonlight-common-c SYSTEM PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/nanors/deps
   ${CMAKE_CURRENT_SOURCE_DIR}/nanors/deps/obl
 )
+
+target_include_directories(moonlight-common-c SYSTEM PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/../tracy-xbox/public")
 
 target_compile_definitions(moonlight-common-c PRIVATE HAS_SOCKLEN_T)
