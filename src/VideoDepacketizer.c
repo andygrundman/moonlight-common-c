@@ -89,7 +89,7 @@ static void cleanupFrameState(void) {
     while (nalChainHead != NULL) {
         lastEntry = (PLENTRY_INTERNAL)nalChainHead;
         nalChainHead = lastEntry->entry.next;
-        PltFree(lastEntry->allocPtr);
+        PacketBufferPoolRelease(&VideoPacketBufferPool, lastEntry->allocPtr);
     }
 
     nalChainTail = NULL;
@@ -307,7 +307,7 @@ void LiCompleteVideoFrame(VIDEO_FRAME_HANDLE handle, int drStatus) {
     while (qdu->decodeUnit.bufferList != NULL) {
         lastEntry = (PLENTRY_INTERNAL)qdu->decodeUnit.bufferList;
         qdu->decodeUnit.bufferList = lastEntry->entry.next;
-        PltFree(lastEntry->allocPtr);
+        PacketBufferPoolRelease(&VideoPacketBufferPool, lastEntry->allocPtr);
     }
 
     // We will have stack-allocated entries iff we have a direct-submit decoder
@@ -1218,7 +1218,7 @@ void queueRtpPacket(PRTPV_QUEUE_ENTRY queueEntryPtr) {
 
     if (existingEntry != NULL) {
         // processRtpPayload didn't want this packet, so just free it
-        PltFree(existingEntry->allocPtr);
+        PacketBufferPoolRelease(&VideoPacketBufferPool, existingEntry->allocPtr);
     }
 }
 

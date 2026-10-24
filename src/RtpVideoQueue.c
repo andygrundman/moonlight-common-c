@@ -2,7 +2,7 @@
 
 #include <rs.h>
 
-#if defined(LC_DEBUG) && !defined(LC_FUZZING)
+#if defined(LC_DEBUG) && !defined(LC_FUZZING) && !defined(LC_NO_FEC_VALIDATION)
 // This enables FEC validation mode with a synthetic drop
 // and recovered packet checks vs the original input. It
 // is on by default for debug builds.
@@ -56,7 +56,7 @@ static void purgeListEntries(PRTPV_QUEUE_LIST list) {
     while (list->head != NULL) {
         PRTPV_QUEUE_ENTRY entry = list->head;
         list->head = entry->next;
-        PltFree(entry->packet);
+        PacketBufferPoolRelease(&VideoPacketBufferPool, entry->packet);
     }
 
     list->tail = NULL;
@@ -212,12 +212,12 @@ static bool queuePacket(PRTP_VIDEO_QUEUE queue, PRTPV_QUEUE_ENTRY newEntry, PRTP
     return true;
 }
 
-#define PACKET_RECOVERY_FAILURE()                     \
-    ret = -1;                                         \
-    Limelog("FEC recovery returned corrupt packet %d" \
-            " (frame %d)", rtpPacket->sequenceNumber, \
-            queue->currentFrameNumber);               \
-    PltFree(packets[i]);                                 \
+#define PACKET_RECOVERY_FAILURE()                               \
+    ret = -1;                                                  \
+    Limelog("FEC recovery returned corrupt packet %d"           \
+            " (frame %d)", rtpPacket->sequenceNumber,           \
+            queue->currentFrameNumber);                        \
+    PacketBufferPoolRelease(&VideoPacketBufferPool, packets[i]); \
     continue
 
 // Returns 0 if the frame is completely constructed
@@ -351,7 +351,7 @@ static int reconstructFrame(PRTP_VIDEO_QUEUE queue) {
     unsigned int i;
     for (i = 0; i < totalPackets; i++) {
         if (marks[i]) {
-            packets[i] = PltMalloc(packetBufferSize);
+            packets[i] = PacketBufferPoolAcquire(&VideoPacketBufferPool, packetBufferSize);
             if (packets[i] == NULL) {
                 ret = -4;
                 goto cleanup_packets;
@@ -445,7 +445,7 @@ cleanup_packets:
 
                     // This drop was fake, so we don't want to actually submit it to the depacketizer.
                     // It will get confused because it's already seen this packet before.
-                    PltFree(packets[i]);
+                    PacketBufferPoolRelease(&VideoPacketBufferPool, packets[i]);
                     continue;
                 }
 #endif
@@ -478,7 +478,7 @@ cleanup_packets:
                     queue->recoveredDataPackets++;
                 }
             } else if (packets[i] != NULL) {
-                PltFree(packets[i]);
+                PacketBufferPoolRelease(&VideoPacketBufferPool, packets[i]);
             }
         }
     }
@@ -519,7 +519,7 @@ static void stageCompleteFecBlock(PRTP_VIDEO_QUEUE queue) {
                 removeEntryFromList(&queue->pendingFecBlockList, parityEntry);
 
                 // Free the entry and packet
-                PltFree(parityEntry->packet);
+                PacketBufferPoolRelease(&VideoPacketBufferPool, parityEntry->packet);
 
                 continue;
             }
@@ -628,13 +628,16 @@ static bool completeBlockWithLostPackets(PRTP_VIDEO_QUEUE queue, const char* rea
             continue;
         }
 
-        char* buffer = calloc(1, packetBufferSize);
+        char* buffer = PacketBufferPoolAcquire(&VideoPacketBufferPool, packetBufferSize);
         if (buffer == NULL) {
             // The zero-filled packets already queued stay with the block and are
             // purged with it.
             PltFree(present);
             return false;
         }
+
+        // Pool slots contain data from earlier packets, unlike calloc().
+        memset(buffer, 0, packetBufferSize);
 
         PRTP_PACKET rtpPacket = (PRTP_PACKET)buffer;
         rtpPacket->header = reference->packet->header;

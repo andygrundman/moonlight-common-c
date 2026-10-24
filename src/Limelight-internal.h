@@ -9,11 +9,20 @@
 #include "Input.h"
 #include "RtpAudioQueue.h"
 #include "RtpVideoQueue.h"
+#include "PacketBufferPool.h"
 #include "ByteBuffer.h"
 
 #include <enet/enet.h>
 
 #include <tracy/TracyC.h>
+
+// Stream-owned pools shared with the RTP queues and video depacketizer.
+// FEC block storage has its own cache; audio slots cover the 30-packet decode
+// queue, its consumer, the receive buffer, and recovered/PLC output.
+#define AUDIO_BUFFER_POOL_CAPACITY 64
+#define VIDEO_BUFFER_POOL_CAPACITY 4096
+extern PACKET_BUFFER_POOL AudioPacketBufferPool;
+extern PACKET_BUFFER_POOL VideoPacketBufferPool;
 
 // Common globals
 extern char* RemoteAddrString;

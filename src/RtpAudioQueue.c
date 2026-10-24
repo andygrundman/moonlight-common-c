@@ -2,7 +2,7 @@
 
 #include <rs.h>
 
-#if defined(LC_DEBUG) && !defined(LC_FUZZING)
+#if defined(LC_DEBUG) && !defined(LC_FUZZING) && !defined(LC_NO_FEC_VALIDATION)
 // This enables FEC validation mode with a synthetic drop
 // and recovered packet checks vs the original input. It
 // is on by default for debug builds.
@@ -672,7 +672,7 @@ PRTP_PACKET RtpaGetQueuedPacket(PRTP_AUDIO_QUEUE queue, uint16_t customHeaderLen
         if (nextBlock->marks[nextBlock->nextDataPacketIndex]) {
             // This packet is missing. Return an empty entry to let the caller
             // know to perform packet loss concealment for this frame.
-            lostPacket = PltMalloc(customHeaderLength);
+            lostPacket = PacketBufferPoolAcquire(&AudioPacketBufferPool, customHeaderLength);
             if (lostPacket == NULL) {
                 return NULL;
             }
@@ -705,7 +705,8 @@ PRTP_PACKET RtpaGetQueuedPacket(PRTP_AUDIO_QUEUE queue, uint16_t customHeaderLen
     // Return the next RTP sequence number by indexing into the most recent FEC block
     if (queueHasPacketReady(queue)) {
         PRTPA_FEC_BLOCK nextBlock = queue->blockHead;
-        PRTP_PACKET packet = PltMalloc(customHeaderLength + sizeof(RTP_PACKET) + nextBlock->blockSize);
+        PRTP_PACKET packet = PacketBufferPoolAcquire(&AudioPacketBufferPool,
+                                                     customHeaderLength + sizeof(RTP_PACKET) + nextBlock->blockSize);
         if (packet == NULL) {
             return NULL;
         }

@@ -2,6 +2,8 @@
 
 #include <stdatomic.h>
 
+PACKET_BUFFER_POOL VideoPacketBufferPool;
+
 #define FIRST_FRAME_MAX 1500
 #define FIRST_FRAME_TIMEOUT_SEC 10
 
@@ -41,6 +43,10 @@ static bool receivedFullFrame;
 
 // Initialize the video stream
 void initializeVideoStream(void) {
+    PacketBufferPoolInitialize(&VideoPacketBufferPool,
+                               (size_t)StreamConfig.packetSize + MAX_RTP_HEADER_SIZE + sizeof(RTPV_QUEUE_ENTRY),
+                               VIDEO_BUFFER_POOL_CAPACITY,
+                               (VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) != 0, "Video");
     initializeVideoDepacketizer(StreamConfig.packetSize);
     RtpvInitializeQueue(&rtpQueue);
     decryptionCtx = PltCreateCryptoContext();
@@ -54,6 +60,7 @@ void destroyVideoStream(void) {
     PltDestroyCryptoContext(decryptionCtx);
     destroyVideoDepacketizer();
     RtpvCleanupQueue(&rtpQueue);
+    PacketBufferPoolDestroy(&VideoPacketBufferPool);
 }
 
 // UDP Ping proc
@@ -127,16 +134,19 @@ static void VideoReceiveThreadProc(void* context) {
     }
 
     waitingForVideoMs = 0;
+#ifdef PACKET_DEBUG_VERBOSE
     uint64_t pktRecvUs = 0;
+#endif
     while (!PltIsThreadInterrupted(&receiveThread)) {
         TracyCZoneN(ctx, "VideoRecv UDP", 1);
         PRTP_PACKET packet;
 
         if (buffer == NULL) {
-            buffer = (char*)PltMalloc(bufferSize);
+            buffer = (char*)PacketBufferPoolAcquire(&VideoPacketBufferPool, bufferSize);
             if (buffer == NULL) {
                 Limelog("Video Receive: malloc() failed\n");
                 ListenerCallbacks.connectionTerminated(-1);
+                TracyCZoneEnd(ctx);
                 break;
             }
         }
@@ -148,6 +158,7 @@ static void VideoReceiveThreadProc(void* context) {
         if (err < 0) {
             Limelog("Video Receive: recvUdpSocket() failed: %d\n", (int)LastSocketError());
             ListenerCallbacks.connectionTerminated(LastSocketFail());
+            TracyCZoneEnd(ctx);
             break;
         }
         else if  (err == 0) {
@@ -158,11 +169,13 @@ static void VideoReceiveThreadProc(void* context) {
                 if (waitingForVideoMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
                     Limelog("Terminating connection due to lack of video traffic\n");
                     ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_TRAFFIC);
+                    TracyCZoneEnd(ctx);
                     break;
                 }
             }
 
             // Receive timed out; try again
+            TracyCZoneEnd(ctx);
             continue;
         }
 
@@ -182,6 +195,7 @@ static void VideoReceiveThreadProc(void* context) {
             if (PltGetMillis() - firstDataTimeMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
                 Limelog("Terminating connection due to lack of a successful video frame\n");
                 ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_FRAME);
+                TracyCZoneEnd(ctx);
                 break;
             }
         }
@@ -189,12 +203,12 @@ static void VideoReceiveThreadProc(void* context) {
 
         if (err < minSize) {
             // Runt packet
+            TracyCZoneEnd(ctx);
             continue;
         }
 
         // Decrypt the packet into the buffer if encryption is enabled
         if (encrypted) {
-            TracyCZoneN(ctxEnc, "UDP decrypt", 1);
             PENC_VIDEO_HEADER encHeader = (PENC_VIDEO_HEADER)encryptedBuffer;
 
             // If this frame is below our current frame number, discard it before decryption
@@ -223,6 +237,7 @@ static void VideoReceiveThreadProc(void* context) {
                 continue;
             }
 
+            TracyCZoneN(ctxEnc, "UDP decrypt", 1);
             if (!PltDecryptMessage(decryptionCtx, ALGORITHM_AES_GCM, 0,
                                    (unsigned char*)StreamConfig.remoteInputAesKey, sizeof(StreamConfig.remoteInputAesKey),
                                    encHeader->iv, sizeof(encHeader->iv),
@@ -230,6 +245,7 @@ static void VideoReceiveThreadProc(void* context) {
                                    ((unsigned char*)(encHeader + 1)), err - sizeof(ENC_VIDEO_HEADER), // The ciphertext is after the header
                                    (unsigned char*)buffer, &err)) {
                 Limelog("Failed to decrypt video packet!\n");
+                TracyCZoneEnd(ctxEnc);
                 continue;
             }
             TracyCZoneEnd(ctxEnc);
@@ -291,7 +307,7 @@ static void VideoReceiveThreadProc(void* context) {
     }
 
     if (buffer != NULL) {
-        PltFree(buffer);
+        PacketBufferPoolRelease(&VideoPacketBufferPool, buffer);
     }
 
     if (encryptedBuffer != NULL) {

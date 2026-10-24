@@ -1,5 +1,7 @@
 #include "Limelight-internal.h"
 
+PACKET_BUFFER_POOL AudioPacketBufferPool;
+
 static SOCKET rtpSocket = INVALID_SOCKET;
 
 static LINKED_BLOCKING_QUEUE packetQueue;
@@ -66,6 +68,8 @@ static void AudioPingThreadProc(void* context) {
 
 // Initialize the audio stream and start
 int initializeAudioStream(void) {
+    PacketBufferPoolInitialize(&AudioPacketBufferPool, sizeof(QUEUED_AUDIO_PACKET), AUDIO_BUFFER_POOL_CAPACITY,
+                               (AudioCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) != 0, "Audio");
     LbqInitializeLinkedBlockingQueue(&packetQueue, 30);
     RtpaInitializeQueue(&rtpAudioQueue);
     lastSeq = 0;
@@ -116,7 +120,7 @@ static void freePacketList(PLINKED_BLOCKING_QUEUE_ENTRY entry) {
         nextEntry = entry->flink;
 
         // The entry is stored within the data allocation
-        PltFree(entry->data);
+        PacketBufferPoolRelease(&AudioPacketBufferPool, entry->data);
 
         entry = nextEntry;
     }
@@ -137,6 +141,7 @@ void destroyAudioStream(void) {
     PltDestroyCryptoContext(audioDecryptionCtx);
     freePacketList(LbqDestroyLinkedBlockingQueue(&packetQueue));
     RtpaCleanupQueue(&rtpAudioQueue);
+    PacketBufferPoolDestroy(&AudioPacketBufferPool);
 }
 
 static bool queuePacketToLbq(PQUEUED_AUDIO_PACKET* packet) {
@@ -259,7 +264,7 @@ static void AudioReceiveThreadProc(void* context) {
     waitingForAudioMs = 0;
     while (!PltIsThreadInterrupted(&receiveThread)) {
         if (packet == NULL) {
-            packet = (PQUEUED_AUDIO_PACKET)PltMalloc(sizeof(*packet));
+            packet = (PQUEUED_AUDIO_PACKET)PacketBufferPoolAcquire(&AudioPacketBufferPool, sizeof(*packet));
             if (packet == NULL) {
                 Limelog("Audio Receive: malloc() failed\n");
                 ListenerCallbacks.connectionTerminated(-1);
@@ -355,7 +360,7 @@ static void AudioReceiveThreadProc(void* context) {
                     if ((AudioCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) == 0) {
                         if (!queuePacketToLbq(&queuedPacket)) {
                             // An exit signal was received
-                            PltFree(queuedPacket);
+                            PacketBufferPoolRelease(&AudioPacketBufferPool, queuedPacket);
                             break;
                         }
                         else {
@@ -365,7 +370,7 @@ static void AudioReceiveThreadProc(void* context) {
                     }
                     else {
                         decodeInputData(queuedPacket);
-                        PltFree(queuedPacket);
+                        PacketBufferPoolRelease(&AudioPacketBufferPool, queuedPacket);
                     }
                 }
 
@@ -378,7 +383,7 @@ static void AudioReceiveThreadProc(void* context) {
     }
 
     if (packet != NULL) {
-        PltFree(packet);
+        PacketBufferPoolRelease(&AudioPacketBufferPool, packet);
     }
 }
 
@@ -395,7 +400,7 @@ static void AudioDecoderThreadProc(void* context) {
 
         decodeInputData(packet);
 
-        PltFree(packet);
+        PacketBufferPoolRelease(&AudioPacketBufferPool, packet);
     }
 }
 
