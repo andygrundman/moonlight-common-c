@@ -78,7 +78,4 @@ typedef struct _RTP_AUDIO_QUEUE {
 void RtpaInitializeQueue(PRTP_AUDIO_QUEUE queue);
 void RtpaCleanupQueue(PRTP_AUDIO_QUEUE queue);
 int RtpaAddPacket(PRTP_AUDIO_QUEUE queue, PRTP_PACKET packet, uint16_t length);
-// Includes customHeaderLength bytes of caller-owned prefix. Return the entire
-// allocation with PacketBufferPoolRelease(&AudioPacketBufferPool, ...), including
-// loss-concealment placeholders.
 PRTP_PACKET RtpaGetQueuedPacket(PRTP_AUDIO_QUEUE queue, uint16_t customHeaderLength, uint16_t* length);

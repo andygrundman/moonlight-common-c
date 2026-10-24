@@ -124,18 +124,19 @@ void PltSleepMsInterruptible(PLT_THREAD* thread, int ms) {
 
 int PltCreateMutex(PLT_MUTEX* mutex) {
 #if defined(LC_WINDOWS)
-    InitializeSRWLock(mutex);
+    InitializeSRWLock(&mutex->native);
 #elif defined(__WIIU__)
-    OSFastMutex_Init(mutex, "");
+    OSFastMutex_Init(&mutex->native, "");
 #elif defined(__3DS__)
-    LightLock_Init(mutex);
+    LightLock_Init(&mutex->native);
 #else
-    int err = pthread_mutex_init(mutex, NULL);
+    int err = pthread_mutex_init(&mutex->native, NULL);
     if (err != 0) {
         return err;
     }
 #endif
     activeMutexes++;
+    TracyCLockAnnounce(mutex->tracy);
     return 0;
 }
 
@@ -147,31 +148,40 @@ void PltDeleteMutex(PLT_MUTEX* mutex) {
 #elif defined(__WIIU__) || defined(__3DS__)
 
 #else
-    pthread_mutex_destroy(mutex);
+    pthread_mutex_destroy(&mutex->native);
 #endif
+    TracyCLockTerminate(mutex->tracy);
 }
 
 void PltLockMutex(PLT_MUTEX* mutex) {
+#ifdef TRACY_ENABLE
+    // TRACY_ON_DEMAND can return false if not yet active
+    bool runAfter = TracyCLockBeforeLock(mutex->tracy);
+#endif
 #if defined(LC_WINDOWS)
-    AcquireSRWLockExclusive(mutex);
+    AcquireSRWLockExclusive(&mutex->native);
 #elif defined(__WIIU__)
-    OSFastMutex_Lock(mutex);
+    OSFastMutex_Lock(&mutex->native);
 #elif defined(__3DS__)
-    LightLock_Lock(mutex);
+    LightLock_Lock(&mutex->native);
 #else
-    pthread_mutex_lock(mutex);
+    pthread_mutex_lock(&mutex->native);
+#endif
+#ifdef TRACY_ENABLE
+    if (runAfter) TracyCLockAfterLock(mutex->tracy);
 #endif
 }
 
 void PltUnlockMutex(PLT_MUTEX* mutex) {
+    TracyCLockBeforeUnlock(mutex->tracy);
 #if defined(LC_WINDOWS)
-    ReleaseSRWLockExclusive(mutex);
+    ReleaseSRWLockExclusive(&mutex->native);
 #elif defined(__WIIU__)
-    OSFastMutex_Unlock(mutex);
+    OSFastMutex_Unlock(&mutex->native);
 #elif defined(__3DS__)
-    LightLock_Unlock(mutex);
+    LightLock_Unlock(&mutex->native);
 #else
-    pthread_mutex_unlock(mutex);
+    pthread_mutex_unlock(&mutex->native);
 #endif
 }
 
@@ -417,15 +427,17 @@ void PltSignalConditionVariable(PLT_COND* cond) {
 }
 
 void PltWaitForConditionVariable(PLT_COND* cond, PLT_MUTEX* mutex) {
+TracyCLockBeforeUnlock(mutex->tracy);
 #if defined(LC_WINDOWS)
-    SleepConditionVariableSRW(cond, mutex, INFINITE, 0);
+    SleepConditionVariableSRW(cond, &mutex->native, INFINITE, 0);
 #elif defined(__WIIU__)
-    OSFastCond_Wait(cond, mutex);
+    OSFastCond_Wait(cond, &mutex->native);
 #elif defined(__3DS__)
-    CondVar_Wait(cond, mutex);
+    CondVar_Wait(cond, &mutex->native);
 #else
-    pthread_cond_wait(cond, mutex);
+    pthread_cond_wait(cond, &mutex->native);
 #endif
+TracyCLockAfterTryLock(mutex->tracy, true);
 }
 
 //// Begin timing functions

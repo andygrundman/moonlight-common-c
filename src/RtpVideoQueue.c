@@ -47,6 +47,10 @@ void RtpvInitializeQueue(PRTP_VIDEO_QUEUE queue) {
     reed_solomon_init();
     memset(queue, 0, sizeof(*queue));
     PltCreateMutex(&queue->statsMutex);
+#ifdef TRACY_ENABLE
+    static const char mutexName[] = "Video statsMutex";
+    TracyCLockCustomName(queue->statsMutex.tracy, mutexName, sizeof(mutexName) - 1);
+#endif
 
     queue->currentFrameNumber = 1;
     queue->multiFecCapable = APP_VERSION_AT_LEAST(7, 1, 431);
@@ -296,6 +300,8 @@ static int reconstructFrame(PRTP_VIDEO_QUEUE queue) {
         goto cleanup;
     }
 
+    TracyCZoneN(ctx, "FEC", 1); // rest of this function
+
     rs = reed_solomon_new(queue->bufferDataPackets, queue->bufferParityPackets);
 
     // This could happen in an OOM condition, but it could also mean the FEC data
@@ -491,6 +497,8 @@ cleanup:
 
     if (marks != NULL)
         PltFree(marks);
+
+    TracyCZoneEnd(ctx);
 
     return ret;
 }

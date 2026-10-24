@@ -66,6 +66,9 @@ void PacketBufferPoolInitialize(PACKET_BUFFER_POOL* pool, size_t bufferSize,
             return;
         }
         pool->synchronized = true;
+        //static const char mutexName[] = "PBP mutex";
+        //TracyCLockCustomName(pool->mutex.tracy, mutexName, sizeof(mutexName) - 1);
+        TracyCLockCustomName(pool->mutex.tracy, pool->name, strlen(pool->name));
     }
 
     pool->slab = (char*)(((uintptr_t)pool->allocation + PACKET_BUFFER_ALIGNMENT - 1) &

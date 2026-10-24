@@ -3,7 +3,7 @@
 // Destroy the linked blocking queue and associated mutex and event
 PLINKED_BLOCKING_QUEUE_ENTRY LbqDestroyLinkedBlockingQueue(PLINKED_BLOCKING_QUEUE queueHead) {
     LC_ASSERT(queueHead->shutdown || queueHead->draining || queueHead->lifetimeSize == 0);
-    
+
     PltDeleteMutex(&queueHead->mutex);
     PltDeleteConditionVariable(&queueHead->cond);
 
@@ -52,6 +52,11 @@ int LbqInitializeLinkedBlockingQueue(PLINKED_BLOCKING_QUEUE queueHead, int sizeB
         return err;
     }
 
+#ifdef TRACY_ENABLE
+    static const char mutexName[] = "LBQ mutex";
+    TracyCLockCustomName(queueHead->mutex.tracy, mutexName, sizeof(mutexName) - 1);
+#endif
+
     queueHead->sizeBound = sizeBound;
 
     return 0;
@@ -84,7 +89,7 @@ int LbqGetItemCount(PLINKED_BLOCKING_QUEUE queueHead) {
 
 int LbqOfferQueueItem(PLINKED_BLOCKING_QUEUE queueHead, void* data, PLINKED_BLOCKING_QUEUE_ENTRY entry) {
     bool wasEmpty;
-    
+
     entry->flink = NULL;
     entry->data = data;
 

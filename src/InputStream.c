@@ -122,6 +122,10 @@ int initializeInputStream(void) {
     memset(&currentRelativeMouseState, 0, sizeof(currentRelativeMouseState));
     memset(&currentAbsoluteMouseState, 0, sizeof(currentAbsoluteMouseState));
     PltCreateMutex(&batchedInputMutex);
+#ifdef TRACY_ENABLE
+    static const char inputMutexName[] = "Input mutex";
+    TracyCLockCustomName(batchedInputMutex.tracy, inputMutexName, sizeof(inputMutexName) - 1);
+#endif
 
     return 0;
 }

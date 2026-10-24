@@ -9,7 +9,21 @@ PACKET_BUFFER_POOL VideoPacketBufferPool;
 
 #define FIRST_FRAME_PORT 47996
 
+// These survive queue initialization and cleanup.
 static RTP_VIDEO_QUEUE rtpQueue;
+static atomic_flag rtpQueueLifecycleGuard = ATOMIC_FLAG_INIT;
+static bool rtpQueueReady = false; // Access only while holding the guard.
+
+static void lockRtpQueueLifecycle(void) {
+	while (atomic_flag_test_and_set_explicit(
+	    &rtpQueueLifecycleGuard, memory_order_acquire)) {
+		PltSleepMs(1);
+	}
+}
+
+static void unlockRtpQueueLifecycle(void) {
+	atomic_flag_clear_explicit(&rtpQueueLifecycleGuard, memory_order_release);
+}
 
 static SOCKET rtpSocket = INVALID_SOCKET;
 static SOCKET firstFrameSocket = INVALID_SOCKET;
@@ -43,24 +57,37 @@ static bool receivedFullFrame;
 
 // Initialize the video stream
 void initializeVideoStream(void) {
-    PacketBufferPoolInitialize(&VideoPacketBufferPool,
-                               (size_t)StreamConfig.packetSize + MAX_RTP_HEADER_SIZE + sizeof(RTPV_QUEUE_ENTRY),
-                               VIDEO_BUFFER_POOL_CAPACITY,
-                               (VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) != 0, "Video");
-    initializeVideoDepacketizer(StreamConfig.packetSize);
-    RtpvInitializeQueue(&rtpQueue);
-    decryptionCtx = PltCreateCryptoContext();
-    receivedDataFromPeer = false;
-    firstDataTimeMs = 0;
-    receivedFullFrame = false;
+	PacketBufferPoolInitialize(&VideoPacketBufferPool,
+	                           (size_t)StreamConfig.packetSize + MAX_RTP_HEADER_SIZE + sizeof(RTPV_QUEUE_ENTRY),
+	                           VIDEO_BUFFER_POOL_CAPACITY,
+	                           (VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) != 0, "Video");
+	initializeVideoDepacketizer(StreamConfig.packetSize);
+
+	lockRtpQueueLifecycle();
+	LC_ASSERT(!rtpQueueReady);
+	RtpvInitializeQueue(&rtpQueue);
+	rtpQueueReady = true;
+	unlockRtpQueueLifecycle();
+
+	decryptionCtx = PltCreateCryptoContext();
+	receivedDataFromPeer = false;
+	firstDataTimeMs = 0;
+	receivedFullFrame = false;
 }
 
 // Clean up the video stream
 void destroyVideoStream(void) {
-    PltDestroyCryptoContext(decryptionCtx);
-    destroyVideoDepacketizer();
-    RtpvCleanupQueue(&rtpQueue);
-    PacketBufferPoolDestroy(&VideoPacketBufferPool);
+	PltDestroyCryptoContext(decryptionCtx);
+	destroyVideoDepacketizer();
+
+	lockRtpQueueLifecycle();
+	if (rtpQueueReady) {
+		rtpQueueReady = false;
+		RtpvCleanupQueue(&rtpQueue);
+	}
+	unlockRtpQueueLifecycle();
+
+	PacketBufferPoolDestroy(&VideoPacketBufferPool);
 }
 
 // UDP Ping proc
@@ -325,12 +352,14 @@ static void VideoDecoderThreadProc(void* context) {
     while (!PltIsThreadInterrupted(&decoderThread)) {
         VIDEO_FRAME_HANDLE frameHandle;
         PDECODE_UNIT decodeUnit;
+        TracyCZoneN(ctx, "VideoDec loop", 1);
 
         if (!LiWaitForNextVideoFrame(&frameHandle, &decodeUnit)) {
             return;
         }
 
         LiCompleteVideoFrame(frameHandle, VideoCallbacks.submitDecodeUnit(decodeUnit));
+        TracyCZoneEnd(ctx);
     }
 }
 
@@ -490,5 +519,14 @@ const RTP_VIDEO_STATS* LiGetRTPVideoStats(void) {
 }
 
 bool LiGetRTPVideoStatsSnapshot(PRTP_VIDEO_STATS stats) {
-    return RtpvGetStatsSnapshot(&rtpQueue, stats);
+	if (stats == NULL) {
+		return false;
+	}
+
+	lockRtpQueueLifecycle();
+	bool available = rtpQueueReady &&
+	                 RtpvGetStatsSnapshot(&rtpQueue, stats);
+	unlockRtpQueueLifecycle();
+
+	return available;
 }

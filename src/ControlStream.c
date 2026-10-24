@@ -306,6 +306,11 @@ int initializeControlStream(void) {
     LbqInitializeLinkedBlockingQueue(&asyncCallbackQueue, 30);
     PltCreateMutex(&enetMutex);
 
+#ifdef TRACY_ENABLE
+    static const char enetMutexName[] = "Enet mutex";
+    TracyCLockCustomName(enetMutex.tracy, enetMutexName, sizeof(enetMutexName) - 1);
+#endif
+
     encryptedControlStream = APP_VERSION_AT_LEAST(7, 1, 431);
 
     if (AppVersionQuad[0] == 3) {

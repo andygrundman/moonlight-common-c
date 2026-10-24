@@ -2,32 +2,33 @@
 
 #include "Limelight.h"
 #include "Platform.h"
+#include <tracy/TracyC.h>
 
 typedef void(*ThreadEntry)(void* context);
 
 #if defined(LC_WINDOWS)
-typedef SRWLOCK PLT_MUTEX;
+typedef SRWLOCK PLT_NATIVE_MUTEX;
 typedef CONDITION_VARIABLE PLT_COND;
 typedef struct _PLT_THREAD {
     HANDLE handle;
     bool cancelled;
 } PLT_THREAD;
 #elif defined(__WIIU__)
-typedef OSFastMutex PLT_MUTEX;
+typedef OSFastMutex PLT_NATIVE_MUTEX;
 typedef OSFastCondition PLT_COND;
 typedef struct _PLT_THREAD {
     OSThread thread;
     int cancelled;
 } PLT_THREAD;
 #elif defined(__3DS__)
-typedef LightLock PLT_MUTEX;
+typedef LightLock PLT_NATIVE_MUTEX;
 typedef CondVar PLT_COND;
 typedef struct _PLT_THREAD {
     Thread thread;
     bool cancelled;
 } PLT_THREAD;
 #elif defined (LC_POSIX)
-typedef pthread_mutex_t PLT_MUTEX;
+typedef pthread_mutex_t PLT_NATIVE_MUTEX;
 typedef pthread_cond_t PLT_COND;
 typedef struct _PLT_THREAD {
     pthread_t thread;
@@ -36,6 +37,13 @@ typedef struct _PLT_THREAD {
 #else
 #error Unsupported platform
 #endif
+
+typedef struct _PLT_MUTEX {
+    PLT_NATIVE_MUTEX native;
+#ifdef TRACY_ENABLE
+    TracyCLockCtx tracy;
+#endif
+} PLT_MUTEX;
 
 #ifdef LC_WINDOWS
 typedef HANDLE PLT_EVENT;

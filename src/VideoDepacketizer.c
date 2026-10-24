@@ -243,6 +243,7 @@ void validateDecodeUnitForPlayback(PDECODE_UNIT decodeUnit) {
 
 bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
     PQUEUED_DECODE_UNIT qdu;
+    TracyCZoneN(ctx, "LiWaitForNextVideoFrame", 1);
 
     int err = LbqWaitForQueueElement(&decodeUnitQueue, (void**)&qdu);
     if (err != LBQ_SUCCESS) {
@@ -253,6 +254,7 @@ bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* deco
 
     *frameHandle = qdu;
     *decodeUnit = &qdu->decodeUnit;
+    TracyCZoneEnd(ctx);
     return true;
 }
 
@@ -293,6 +295,7 @@ void LiWakeWaitForVideoFrame(void) {
 void LiCompleteVideoFrame(VIDEO_FRAME_HANDLE handle, int drStatus) {
     PQUEUED_DECODE_UNIT qdu = handle;
     PLENTRY_INTERNAL lastEntry;
+    TracyCZoneN(ctx, "LiCompleteVideoFrame", 1);
 
     if (drStatus == DR_NEED_IDR) {
         Limelog("Requesting IDR frame on behalf of DR\n");
@@ -314,6 +317,7 @@ void LiCompleteVideoFrame(VIDEO_FRAME_HANDLE handle, int drStatus) {
     if ((VideoCallbacks.capabilities & CAPABILITY_DIRECT_SUBMIT) == 0) {
         PltFree(qdu);
     }
+    TracyCZoneEnd(ctx);
 }
 
 static bool isSeqReferenceFrameStart(PBUFFER_DESC buffer) {
@@ -475,6 +479,7 @@ static bool isIdrFrameStart(PBUFFER_DESC buffer) {
 
 // Reassemble the frame with the given frame number
 static void reassembleFrame(int frameNumber, bool frameIsLTR) {
+    TracyCZoneN(ctx, "reassemble frame", 1);
     if (nalChainHead != NULL) {
         QUEUED_DECODE_UNIT qduDS;
         PQUEUED_DECODE_UNIT qdu;
@@ -538,6 +543,7 @@ static void reassembleFrame(int frameNumber, bool frameIsLTR) {
 
                     // Request an IDR frame to recover
                     LiRequestIdrFrame();
+                    TracyCZoneEnd(ctx);
                     return;
                 }
             }
@@ -557,6 +563,7 @@ static void reassembleFrame(int frameNumber, bool frameIsLTR) {
             startFrameNumber = nextFrameNumber;
         }
     }
+    TracyCZoneEnd(ctx);
 }
 
 static int getBufferFlags(char* data, int length) {
