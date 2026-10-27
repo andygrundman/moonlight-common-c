@@ -13,7 +13,9 @@
 #include "ByteBuffer.h"
 
 #include <enet/enet.h>
-
+#ifdef WIN32
+#include <gamingdeviceinformation.h>
+#endif
 #include <tracy/TracyC.h>
 
 // Stream-owned pools shared with the RTP queues and video depacketizer.
@@ -162,3 +164,19 @@ int initializeInputStream(void);
 void destroyInputStream(void);
 int startInputStream(void);
 int stopInputStream(void);
+
+static inline bool IsXbox() {
+#ifdef WIN32
+    GAMING_DEVICE_MODEL_INFORMATION info;
+    if (FAILED(GetGamingDeviceModelInformation(&info))) {
+        return false;
+    }
+
+    if (info.vendorId == GAMING_DEVICE_VENDOR_ID_MICROSOFT) {
+        return true;
+    }
+    return false;
+#else
+    return false;
+#endif
+}

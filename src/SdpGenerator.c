@@ -446,7 +446,10 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveAdaptiveFec", "0");
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveAdaptiveBitrate", "0");
             err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveFeatures", "1");
-            //err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowavePaceMbps", "1000");
+            if (IsXbox()) {
+                err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowaveLinkMbps", "1000");
+                err |= addAttributeString(&optionHead, "x-ss-video[0].pyrowavePaceMbps", "1000");
+            }
         }
         else if (NegotiatedVideoFormat & VIDEO_FORMAT_MASK_AV1) {
             err |= addAttributeString(&optionHead, "x-nv-vqos[0].bitStreamFormat", "2");
@@ -536,7 +539,7 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             }
         }
 
-        if (VideoCallbacks.capabilities & CAPABILITY_INTRA_REFRESH && audioChannelCount == 2) {
+        if (audioChannelCount == 2 && IsXbox()) {
             // Xbox console UWP audio is stuck with 10ms frame size.
             // Surround packets will exceed the 1400 byte limit and are best left at 5ms.
             AudioPacketDuration = 10;
